@@ -648,9 +648,45 @@ export default function GamePage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0E091C] via-[#6E54FF]/20 to-[#000000] flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0A0118] relative overflow-hidden flex flex-col items-center justify-center p-4">
+      {/* Enhanced animated background - matching main page */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Gradient mesh background */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#6E54FF]/20 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-[#B9E3F9]/10 via-transparent to-transparent" />
+
+        {/* Animated orbs */}
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -100, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gradient-to-r from-[#6E54FF]/20 to-[#FF8EE4]/20 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, 100, 0],
+            scale: [1, 1.3, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+          className="absolute bottom-0 right-1/4 w-[700px] h-[700px] bg-gradient-to-r from-[#FFAE45]/15 to-[#85E6FF]/15 rounded-full blur-3xl"
+        />
+      </div>
+
       {/* Tinder 스타일 메인 카드 */}
-      <div className="w-full max-w-md relative">
+      <div className="w-full max-w-md relative z-10">
         {/* 스와이프 안내 - 카드 바깥 왼쪽/오른쪽 */}
         {gameState === "betting" && userBet === null && (
           <>
@@ -704,7 +740,7 @@ export default function GamePage() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl text-center h-[90vh] flex flex-col items-center justify-center"
+              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl text-center h-[85vh] max-h-[900px] flex flex-col items-center justify-center"
             >
               <motion.div
                 animate={{ rotate: 360 }}
@@ -742,48 +778,62 @@ export default function GamePage() {
                     ? { type: "spring", stiffness: 300, damping: 30 }
                     : {}
                 }
-                className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl cursor-grab active:cursor-grabbing relative overflow-hidden h-[90vh] flex flex-col"
+                className="bg-white/[0.03] backdrop-blur-3xl border border-white/10 rounded-3xl p-4 shadow-2xl shadow-[#6E54FF]/20 cursor-grab active:cursor-grabbing relative overflow-hidden h-[85vh] max-h-[900px] flex flex-col justify-between"
               >
                 {/* 스와이프 방향 힌트 */}
                 {userBet === null && (
                   <>
-                    {/* UP 배경 */}
+                    {/* UP 배경 - Enhanced */}
                     <motion.div
-                      className="absolute top-0 right-0 w-32 h-full bg-green-500/20 flex items-center justify-center z-20"
+                      className="absolute top-0 right-0 w-40 h-full bg-gradient-to-l from-[#85E6FF]/30 to-transparent flex items-center justify-center z-20"
                       initial={{ opacity: 0 }}
                       animate={{
-                        opacity: swipeDirection === "right" ? 0.5 : 0,
+                        opacity: swipeDirection === "right" ? 1 : 0,
                       }}
-                      transition={{ duration: 0.2 }}
+                      transition={{ duration: 0.3 }}
                     >
-                      <TrendingUp className="h-16 w-16 text-green-400" />
+                      <motion.div
+                        animate={{
+                          scale: swipeDirection === "right" ? [1, 1.2, 1] : 1,
+                        }}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                      >
+                        <TrendingUp className="h-20 w-20 text-[#85E6FF] drop-shadow-[0_0_15px_rgba(133,230,255,0.6)]" />
+                      </motion.div>
                     </motion.div>
 
-                    {/* DOWN 배경 */}
+                    {/* DOWN 배경 - Enhanced */}
                     <motion.div
-                      className="absolute top-0 left-0 w-32 h-full bg-red-500/20 flex items-center justify-center z-20"
+                      className="absolute top-0 left-0 w-40 h-full bg-gradient-to-r from-[#FF8EE4]/30 to-transparent flex items-center justify-center z-20"
                       initial={{ opacity: 0 }}
-                      animate={{ opacity: swipeDirection === "left" ? 0.5 : 0 }}
-                      transition={{ duration: 0.2 }}
+                      animate={{ opacity: swipeDirection === "left" ? 1 : 0 }}
+                      transition={{ duration: 0.3 }}
                     >
-                      <TrendingDown className="h-16 w-16 text-red-400" />
+                      <motion.div
+                        animate={{
+                          scale: swipeDirection === "left" ? [1, 1.2, 1] : 1,
+                        }}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                      >
+                        <TrendingDown className="h-20 w-20 text-[#FF8EE4] drop-shadow-[0_0_15px_rgba(255,142,228,0.6)]" />
+                      </motion.div>
                     </motion.div>
                   </>
                 )}
 
                 {/* Logo */}
-                <div className="flex items-center justify-center mb-3 relative z-10">
+                <div className="flex items-center justify-center mb-1 relative z-10">
                   <Image
                     src="/logo.png"
                     alt="Mon Blitz Logo"
                     width={200}
                     height={60}
-                    className="h-10 w-auto"
+                    className="h-8 w-auto"
                   />
                 </div>
 
                 {/* 헤더 정보 */}
-                <div className="flex items-center justify-between mb-4 relative z-10">
+                <div className="flex items-center justify-between mb-2 relative z-10">
                   <div className="flex items-center gap-3">
                     <div
                       className={`h-10 w-10 rounded-xl ${chain.color} flex items-center justify-center text-white font-bold shadow-lg`}
@@ -816,28 +866,28 @@ export default function GamePage() {
                 </div>
 
                 {/* 라운드 번호 */}
-                <div className="text-center mb-2 relative z-10">
+                <div className="text-center mb-1 relative z-10">
                   <p className="text-[#DDD7FE]/80 text-xs font-medium">라운드</p>
-                  <p className="text-white font-bold text-lg">{roundNumber}</p>
+                  <p className="text-white font-bold text-base">{roundNumber}</p>
                 </div>
 
                 {/* 카운트다운 */}
-                <div className="text-center mb-4 relative z-10">
+                <div className="text-center mb-2 relative z-10">
                   <motion.div
                     key={bettingCountdown}
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-6xl font-bold text-white mb-1"
+                    className="text-4xl font-bold text-white mb-1"
                   >
                     {bettingCountdown}
                   </motion.div>
-                  <p className="text-[#DDD7FE] text-sm font-semibold">
+                  <p className="text-[#DDD7FE] text-xs font-semibold">
                     베팅 시간
                   </p>
                 </div>
 
-                {/* 차트 영역 - Price Chart Placeholder */}
-                <div className="bg-white/5 rounded-2xl overflow-hidden h-48 mb-4 relative z-10 flex items-center justify-center">
+                {/* 차트 영역 제거 - 공간 절약 */}
+                <div className="hidden">
                   <div className="text-center">
                     <div className="text-[#DDD7FE]/40 mb-2">
                       <svg className="w-24 h-24 mx-auto" fill="currentColor" viewBox="0 0 24 24">
@@ -853,37 +903,52 @@ export default function GamePage() {
                   </div>
                 </div>
 
-                {/* 가격 정보 */}
-                <div className="text-center mb-4 relative z-10">
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-[#DDD7FE] bg-clip-text text-transparent mb-1">
+                {/* 가격 정보 - Compact */}
+                <div className="text-center mb-3 relative z-10">
+                  <h2 className="text-xl font-bold bg-gradient-to-r from-white via-[#B9E3F9] to-[#6E54FF] bg-clip-text text-transparent mb-1">
                     {chain.name}
                   </h2>
-                  <p className="text-[#DDD7FE]/80 text-sm mb-3">{chain.symbol}</p>
-                  <div className={`text-4xl font-bold mb-2 transition-colors ${
-                    priceChange === "up" ? "text-green-400" :
-                    priceChange === "down" ? "text-red-400" :
-                    "text-white"
-                  }`}>
+                  <p className="text-white/60 text-xs mb-2 font-semibold tracking-wider uppercase">{chain.symbol}</p>
+                  <motion.div
+                    animate={priceChange ? { scale: [1, 1.05, 1] } : {}}
+                    transition={{ duration: 0.3 }}
+                    className={`text-3xl font-black mb-2 transition-all duration-300 ${
+                      priceChange === "up" ? "text-[#85E6FF] drop-shadow-[0_0_20px_rgba(133,230,255,0.5)]" :
+                      priceChange === "down" ? "text-[#FF8EE4] drop-shadow-[0_0_20px_rgba(255,142,228,0.5)]" :
+                      "text-white"
+                    }`}
+                  >
                     ${currentPrice.toLocaleString()}
-                  </div>
+                  </motion.div>
                   {priceChange && (
-                    <div className={`text-sm font-medium ${
-                      priceChange === "up" ? "text-green-400" : "text-red-400"
-                    }`}>
-                      {priceChange === "up" ? "▲" : "▼"} {priceChange === "up" ? "올랐습니다" : "떨어졌습니다"}
-                    </div>
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                        priceChange === "up"
+                          ? "bg-gradient-to-r from-[#85E6FF]/20 to-[#B9E3F9]/20 text-[#85E6FF] border border-[#85E6FF]/30"
+                          : "bg-gradient-to-r from-[#FF8EE4]/20 to-[#FFAE45]/20 text-[#FF8EE4] border border-[#FF8EE4]/30"
+                      }`}
+                    >
+                      {priceChange === "up" ? "▲" : "▼"} {priceChange === "up" ? "Up" : "Down"}
+                    </motion.div>
                   )}
                 </div>
 
-                {/* 참가자 정보 - 간소화 */}
-                <div className="relative z-10 mb-2">
-                  <div className="bg-white/5 rounded-xl p-3 text-center">
-                    <p className="text-[#DDD7FE]/80 text-xs font-medium mb-1">
-                      남은 플레이어
+                {/* 참가자 정보 - Compact */}
+                <div className="relative z-10 mb-3">
+                  <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/10 shadow-lg">
+                    <p className="text-white/60 text-xs font-semibold mb-2 tracking-wider uppercase">
+                      Remaining Players
                     </p>
-                    <p className="text-white font-bold text-2xl">
-                      {activePlayers.length}명
-                    </p>
+                    <motion.p
+                      key={activePlayers.length}
+                      initial={{ scale: 1.2, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-white font-black text-3xl bg-gradient-to-r from-white to-[#B9E3F9] bg-clip-text text-transparent"
+                    >
+                      {activePlayers.length}
+                    </motion.p>
                   </div>
                 </div>
 
@@ -918,20 +983,34 @@ export default function GamePage() {
                         stiffness: 200,
                         damping: 15,
                       }}
-                      className={`flex flex-col items-center gap-3 ${
-                        userBet === "up" ? "text-green-400" : "text-red-400"
+                      className={`flex flex-col items-center gap-4 p-6 rounded-2xl ${
+                        userBet === "up"
+                          ? "bg-gradient-to-br from-[#85E6FF]/20 to-[#B9E3F9]/20 border border-[#85E6FF]/30"
+                          : "bg-gradient-to-br from-[#FF8EE4]/20 to-[#FFAE45]/20 border border-[#FF8EE4]/30"
                       }`}
                     >
                       {userBet === "up" ? (
-                        <TrendingUp className="h-16 w-16" />
+                        <motion.div
+                          animate={{ y: [0, -10, 0] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        >
+                          <TrendingUp className="h-20 w-20 text-[#85E6FF] drop-shadow-[0_0_20px_rgba(133,230,255,0.6)]" />
+                        </motion.div>
                       ) : (
-                        <TrendingDown className="h-16 w-16" />
+                        <motion.div
+                          animate={{ y: [0, 10, 0] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        >
+                          <TrendingDown className="h-20 w-20 text-[#FF8EE4] drop-shadow-[0_0_20px_rgba(255,142,228,0.6)]" />
+                        </motion.div>
                       )}
-                      <div className="text-4xl font-bold">
+                      <div className={`text-5xl font-black ${
+                        userBet === "up" ? "text-[#85E6FF]" : "text-[#FF8EE4]"
+                      }`}>
                         {userBet === "up" ? "UP" : "DOWN"}
                       </div>
-                      <div className="text-lg font-medium opacity-80">
-                        선택됨
+                      <div className="text-sm font-semibold text-white/80 tracking-wider uppercase">
+                        Your Prediction
                       </div>
                     </motion.div>
                   </div>
@@ -946,7 +1025,7 @@ export default function GamePage() {
               key="result"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl px-8 py-10 shadow-2xl text-center relative overflow-hidden h-[90vh] flex flex-col"
+              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl px-8 py-10 shadow-2xl text-center relative overflow-y-auto h-[85vh] max-h-[900px] flex flex-col"
             >
               {/* 승리/패배 낙인 애니메이션 */}
               {showResultStamp && userWon !== null && (
@@ -1051,51 +1130,6 @@ export default function GamePage() {
                 </div>
               </div>
 
-              {/* 참가자 정보 */}
-              {showResultStamp && userWon !== null && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="relative z-10 mb-4"
-                >
-                  <p className="text-[#DDD7FE]/80 text-xs mb-2 text-center font-medium">
-                    참가자 ({activePlayers.length}명)
-                  </p>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    {players.map((player, index) => {
-                      const isActive = activePlayers.find(
-                        (p) => p.id === player.id
-                      );
-                      if (!isActive && player.isEliminated) return null;
-
-                      return (
-                        <div key={player.id} className="relative">
-                          <div className={getPlayerClassName(player, index)}>
-                            {player.avatar}
-                            {isActive && isActive.bet && (
-                              <div
-                                className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full flex items-center justify-center ${
-                                  isActive.bet === "up"
-                                    ? "bg-green-500"
-                                    : "bg-red-500"
-                                }`}
-                              >
-                                {isActive.bet === "up" ? (
-                                  <TrendingUp className="h-2 w-2 text-white" />
-                                ) : (
-                                  <TrendingDown className="h-2 w-2 text-white" />
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-
               {/* 참가자 결과 - 최종 승자 화면과 동일한 스타일 */}
               {showResultStamp && userWon !== null && (
                 <motion.div
@@ -1174,7 +1208,7 @@ export default function GamePage() {
               key="elimination"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl text-center h-[90vh] flex flex-col"
+              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl text-center h-[85vh] max-h-[900px] flex flex-col"
             >
               <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-[#DDD7FE] bg-clip-text text-transparent mb-4">
                 라운드 {roundNumber - 1} 종료
@@ -1230,7 +1264,7 @@ export default function GamePage() {
               key="finalWinner"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl text-center relative overflow-hidden h-[90vh] flex flex-col"
+              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl text-center relative overflow-y-auto h-[85vh] max-h-[900px] flex flex-col"
             >
               {/* 중앙 콘텐츠 */}
               <div className="flex-1 flex flex-col items-center justify-center">

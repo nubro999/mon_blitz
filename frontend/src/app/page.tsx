@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, TrendingUp, Zap, Wallet } from "lucide-react";
+import { ArrowRight, Sparkles, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BrowserProvider, Eip1193Provider } from "ethers";
 import Image from "next/image";
@@ -22,55 +22,55 @@ const chains = [
     id: "ethereum",
     name: "Ethereum",
     symbol: "ETH",
-    color: "from-[#85E6FF] to-[#B9E3F9]",
-    gradient: "from-[#85E6FF]/20 to-[#B9E3F9]/20",
-    description: "가장 큰 스마트 컨트랙트 플랫폼",
-    icon: "⟠",
+    color: "from-[#627EEA] to-[#8A9FED]",
+    gradient: "from-[#627EEA]/20 to-[#8A9FED]/20",
+    description: "The world's leading smart contract platform",
+    logoUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   },
   {
     id: "solana",
     name: "Solana",
     symbol: "SOL",
-    color: "from-[#FF8EE4] to-[#FFAE45]",
-    gradient: "from-[#FF8EE4]/20 to-[#FFAE45]/20",
-    description: "고성능 블록체인 네트워크",
-    icon: "◎",
+    color: "from-[#9945FF] to-[#14F195]",
+    gradient: "from-[#9945FF]/20 to-[#14F195]/20",
+    description: "High-performance blockchain network",
+    logoUrl: "https://assets.coingecko.com/coins/images/4128/small/solana.png",
   },
   {
     id: "polygon",
     name: "Polygon",
     symbol: "MATIC",
-    color: "from-[#FFAE45] to-[#FF8EE4]",
-    gradient: "from-[#FFAE45]/20 to-[#FF8EE4]/20",
-    description: "Ethereum의 Layer 2 솔루션",
-    icon: "⬟",
+    color: "from-[#8247E5] to-[#A573F2]",
+    gradient: "from-[#8247E5]/20 to-[#A573F2]/20",
+    description: "Ethereum's leading Layer 2 solution",
+    logoUrl: "https://assets.coingecko.com/coins/images/4713/small/polygon.png",
   },
   {
     id: "arbitrum",
     name: "Arbitrum",
     symbol: "ARB",
-    color: "from-[#85E6FF] to-[#B9E3F9]",
-    gradient: "from-[#85E6FF]/20 to-[#B9E3F9]/20",
-    description: "Ethereum Layer 2 롤업",
-    icon: "⟠",
+    color: "from-[#28A0F0] to-[#4FB3F6]",
+    gradient: "from-[#28A0F0]/20 to-[#4FB3F6]/20",
+    description: "Ethereum Layer 2 optimistic rollup",
+    logoUrl: "https://assets.coingecko.com/coins/images/16547/small/arbitrum.png",
   },
   {
     id: "base",
     name: "Base",
     symbol: "BASE",
-    color: "from-[#FFAE45] to-[#FF8EE4]",
-    gradient: "from-[#FFAE45]/20 to-[#FF8EE4]/20",
-    description: "Coinbase의 Layer 2 네트워크",
-    icon: "⬡",
+    color: "from-[#0052FF] to-[#3D7FFF]",
+    gradient: "from-[#0052FF]/20 to-[#3D7FFF]/20",
+    description: "Coinbase's Layer 2 network",
+    logoUrl: "https://assets.coingecko.com/coins/images/27277/small/base.png",
   },
   {
     id: "optimism",
     name: "Optimism",
     symbol: "OP",
-    color: "from-[#FF8EE4] to-[#FFAE45]",
-    gradient: "from-[#FF8EE4]/20 to-[#FFAE45]/20",
-    description: "Ethereum Layer 2 옵티미스틱 롤업",
-    icon: "⟠",
+    color: "from-[#FF0420] to-[#FF4D6A]",
+    gradient: "from-[#FF0420]/20 to-[#FF4D6A]/20",
+    description: "Ethereum Layer 2 optimistic rollup",
+    logoUrl: "https://assets.coingecko.com/coins/images/25244/small/Optimism.png",
   },
 ];
 
@@ -276,193 +276,354 @@ export default function ChainSelection() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0E091C] via-[#6E54FF]/20 to-[#000000] relative overflow-hidden">
-      {/* Animated background elements */}
+    <div className="min-h-screen bg-[#0A0118] relative overflow-hidden">
+      {/* Enhanced animated background with gradient mesh */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#6E54FF]/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#6E54FF]/10 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-[#6E54FF]/10 rounded-full blur-3xl animate-pulse delay-2000" />
+        {/* Gradient mesh background */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#6E54FF]/20 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-[#B9E3F9]/10 via-transparent to-transparent" />
+
+        {/* Animated orbs with different speeds */}
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -100, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gradient-to-r from-[#6E54FF]/20 to-[#FF8EE4]/20 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, 100, 0],
+            scale: [1, 1.3, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+          className="absolute bottom-0 right-1/4 w-[700px] h-[700px] bg-gradient-to-r from-[#FFAE45]/15 to-[#85E6FF]/15 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, 50, -50, 0],
+            y: [0, -50, 50, 0],
+            scale: [1, 1.1, 1.2, 1],
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 5
+          }}
+          className="absolute top-1/2 left-1/2 w-[500px] h-[500px] bg-gradient-to-r from-[#FF8EE4]/10 to-[#6E54FF]/10 rounded-full blur-3xl"
+        />
+
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-[0.02]" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        {/* Wallet Connection Bar */}
+        {/* Wallet Connection Bar - Enhanced */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex justify-end mb-8"
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="flex justify-end mb-12"
         >
           {walletAddress ? (
-            <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6E54FF]/10 to-[#6E54FF]/10 backdrop-blur-xl border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#6E54FF] to-[#6E54FF] flex items-center justify-center">
-                  <Wallet className="h-5 w-5 text-white" />
-                </div>
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              className="flex items-center gap-4 px-8 py-4 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/20"
+            >
+              <div className="flex items-center gap-4">
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                  className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#6E54FF] via-[#8B6FFF] to-[#A88FFF] flex items-center justify-center shadow-lg shadow-[#6E54FF]/30"
+                >
+                  <Wallet className="h-6 w-6 text-white" />
+                </motion.div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-[#DDD7FE]/80 font-medium">연결된 지갑</span>
-                  <span className="text-sm text-white font-bold">
+                  <span className="text-xs text-[#DDD7FE]/60 font-semibold tracking-wide uppercase">Connected</span>
+                  <span className="text-base text-white font-bold tracking-tight">
                     {walletAddress.substring(0, 6)}...{walletAddress.substring(38)}
                   </span>
                 </div>
               </div>
               {balance && (
-                <div className="ml-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-sm text-[#DDD7FE] font-bold">{balance} MON</span>
+                <div className="ml-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#6E54FF]/10 to-[#FF8EE4]/10 border border-[#6E54FF]/20 backdrop-blur-sm">
+                  <span className="text-sm text-white font-bold">{balance} <span className="text-[#DDD7FE]/80">MON</span></span>
                 </div>
               )}
               <button
                 onClick={disconnectWallet}
-                className="ml-2 px-4 py-2 rounded-lg bg-[#B9E3F9]/20 hover:bg-[#B9E3F9]/30 border border-[#B9E3F9]/30 hover:border-[#B9E3F9]/50 text-xs text-[#DDD7FE] hover:text-white transition-all duration-200"
+                className="ml-3 px-5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs text-[#DDD7FE] hover:text-white transition-all duration-300 font-semibold"
               >
-                연결 해제
+                Disconnect
               </button>
-            </div>
+            </motion.div>
           ) : (
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={connectWallet}
-              className="group flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#6E54FF] to-[#6E54FF] hover:from-[#6E54FF]/80 hover:to-[#6E54FF]/80 border border-[#6E54FF]/20 transition-all duration-300 shadow-lg shadow-[#6E54FF]/20 hover:shadow-[#6E54FF]/40"
+              className="group relative flex items-center gap-3 px-8 py-4 rounded-3xl bg-gradient-to-r from-[#6E54FF] via-[#8B6FFF] to-[#A88FFF] hover:from-[#7E64FF] hover:via-[#9B7FFF] hover:to-[#B89FFF] transition-all duration-300 shadow-2xl shadow-[#6E54FF]/30 hover:shadow-[#6E54FF]/50 overflow-hidden"
             >
-              <Wallet className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
-              <span className="text-sm text-white font-bold">지갑 연결</span>
-            </button>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 group-hover:translate-x-full transition-transform duration-1000" />
+              <Wallet className="h-5 w-5 text-white relative z-10 group-hover:scale-110 transition-transform duration-200" />
+              <span className="text-sm text-white font-bold relative z-10 tracking-wide">Connect Wallet</span>
+            </motion.button>
           )}
         </motion.div>
 
-        {/* Hero Section */}
+        {/* Hero Section - Ultra Modern */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-16 text-center"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="mb-20 text-center"
         >
-          {/* Logo */}
+          {/* Badge */}
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="flex items-center justify-center mb-6"
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="inline-flex items-center gap-2 mb-8 px-6 py-3 rounded-full bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-xl border border-white/20 shadow-2xl shadow-[#6E54FF]/20"
           >
-            <Image
-              src="/logo.png"
-              alt="Mon Blitz Logo"
-              width={200}
-              height={60}
-              className="h-20 w-auto"
-            />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            >
+              <Sparkles className="h-5 w-5 text-[#6E54FF]" />
+            </motion.div>
+            <span className="text-sm text-white font-semibold tracking-wide">Blockchain Price Prediction Game</span>
           </motion.div>
 
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10"
+          {/* Main Title with funky style */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="mb-8 text-7xl sm:text-8xl lg:text-9xl font-black relative z-10"
+            style={{ fontFamily: "'Poppins', 'Inter', sans-serif", letterSpacing: '-0.02em' }}
           >
-            <Sparkles className="h-4 w-4 text-[#6E54FF]" />
-            <span className="text-sm text-[#DDD7FE]">블록체인 가격 예측 게임</span>
-          </motion.div>
-
-          <h1 className="mb-6 text-6xl sm:text-7xl font-bold">
-            <span className="bg-gradient-to-r from-white via-[#DDD7FE] to-[#DDD7FE] bg-clip-text text-transparent">
-              Mon Blitz
+            <span className="relative inline-block">
+              {/* Glow effect background */}
+              <span className="absolute inset-0 bg-gradient-to-r from-[#FF0080] via-[#7928CA] to-[#FF0080] bg-clip-text text-transparent blur-2xl opacity-50 animate-pulse">
+                Monder
+              </span>
+              {/* Main text with wave animation */}
+              <span className="relative inline-flex bg-gradient-to-r from-[#FF0080] via-[#7928CA] to-[#FF0080] bg-clip-text">
+                <motion.span
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="inline-block"
+                >
+                  M
+                </motion.span>
+                <motion.span
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+                  className="inline-block"
+                >
+                  o
+                </motion.span>
+                <motion.span
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                  className="inline-block"
+                >
+                  n
+                </motion.span>
+                <motion.span
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                  className="inline-block"
+                >
+                  d
+                </motion.span>
+                <motion.span
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                  className="inline-block"
+                >
+                  e
+                </motion.span>
+                <motion.span
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                  className="inline-block"
+                >
+                  r
+                </motion.span>
+              </span>
             </span>
-          </h1>
+          </motion.h1>
 
-          <p className="mx-auto max-w-2xl text-xl text-[#DDD7FE]/80 leading-relaxed mb-8">
-            실시간 코인 가격을 예측하고 승부하세요
+          {/* Subtitle */}
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="mx-auto max-w-3xl text-xl sm:text-2xl text-white/80 leading-relaxed mb-12 font-light"
+          >
+            Predict real-time crypto prices and <span className="text-white font-semibold">win big</span>
             <br />
-            <span className="text-[#DDD7FE]/60">다양한 블록체인 네트워크에서 게임에 참여하세요</span>
-          </p>
-
-          <div className="flex items-center justify-center gap-8 text-sm text-[#DDD7FE]/60">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span>실시간 가격</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              <span>빠른 결제</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <span>공정한 게임</span>
-            </div>
-          </div>
+            <span className="text-white/60 text-lg">Join the game on multiple blockchain networks</span>
+          </motion.p>
         </motion.div>
 
-        {/* Chain Cards Grid */}
+        {/* Chain Cards Grid - Ultra Modern Bento Style */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
         >
           {chains.map((chain, index) => (
             <motion.button
               key={chain.id}
               variants={itemVariants}
+              whileHover={{ scale: 1.03, y: -5 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => handleChainSelect(chain.id)}
-              className="group relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 p-8 text-left transition-all duration-300 hover:bg-white/10 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl hover:shadow-[#6E54FF]/20"
+              className="group relative overflow-hidden rounded-3xl bg-white/[0.03] backdrop-blur-3xl border border-white/10 p-8 text-left transition-all duration-500 hover:bg-white/[0.08] hover:border-white/20 hover:shadow-2xl hover:shadow-[#6E54FF]/30"
             >
-              {/* Gradient overlay on hover */}
-              <div
-                className={`absolute inset-0 bg-gradient-to-br ${chain.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+              {/* Animated gradient background */}
+              <motion.div
+                className={`absolute inset-0 bg-gradient-to-br ${chain.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                initial={false}
               />
 
-              {/* Shine effect */}
-              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              {/* Shimmer effect */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+                animate={{
+                  x: ['-200%', '200%'],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  repeatDelay: 1,
+                  ease: "easeInOut"
+                }}
+              />
 
               <div className="relative z-10">
                 {/* Icon and Header */}
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">
-                    <div
-                      className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${chain.color} flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-black/30 group-hover:scale-110 transition-transform duration-300`}
+                    <motion.div
+                      whileHover={{ rotate: 15, scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                      className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${chain.color} p-3 flex items-center justify-center shadow-xl shadow-black/40 border border-white/20 backdrop-blur-sm`}
                     >
-                      {chain.icon}
-                    </div>
+                      <Image
+                        src={chain.logoUrl}
+                        alt={`${chain.name} logo`}
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-contain"
+                        unoptimized
+                      />
+                    </motion.div>
                     <div>
-                      <h3 className="text-2xl font-bold text-white mb-1 group-hover:text-white transition-colors">
+                      <h3 className="text-2xl font-bold text-white mb-1 tracking-tight">
                         {chain.name}
                       </h3>
-                      <p className="text-sm text-[#DDD7FE]/80 font-medium group-hover:text-[#DDD7FE] transition-colors">
+                      <p className="text-sm text-white/60 font-semibold tracking-wider uppercase">
                         {chain.symbol}
                       </p>
                     </div>
                   </div>
 
                   <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    whileHover={{ x: 5 }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileHover={{ scale: 1.2, rotate: 45 }}
+                    className="opacity-0 group-hover:opacity-100 transition-all duration-300"
                   >
-                    <div className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg">
                       <ArrowRight className="h-5 w-5 text-white" />
                     </div>
                   </motion.div>
                 </div>
 
                 {/* Description */}
-                <p className="text-sm text-[#DDD7FE] leading-relaxed group-hover:text-white transition-colors duration-300">
+                <p className="text-sm text-white/70 leading-relaxed group-hover:text-white/90 transition-colors duration-300 mb-6">
                   {chain.description}
                 </p>
 
-                {/* Bottom accent line */}
-                <div className={`mt-6 h-1 w-0 bg-gradient-to-r ${chain.color} group-hover:w-full transition-all duration-500 rounded-full`} />
+                {/* Animated progress bar */}
+                <div className="relative h-1 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    className={`absolute inset-y-0 left-0 bg-gradient-to-r ${chain.color} rounded-full`}
+                    initial={{ width: 0 }}
+                    whileHover={{ width: "100%" }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                  />
+                </div>
+
+                {/* Floating particles effect */}
+                <div className="absolute inset-0 pointer-events-none">
+                  {[...Array(3)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className={`absolute h-1 w-1 rounded-full bg-gradient-to-r ${chain.color} opacity-0 group-hover:opacity-60`}
+                      style={{
+                        left: `${20 + i * 30}%`,
+                        top: `${30 + i * 20}%`,
+                      }}
+                      animate={{
+                        y: [0, -20, 0],
+                        opacity: [0, 0.6, 0],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: i * 0.3,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </motion.button>
           ))}
         </motion.div>
 
-        {/* Footer */}
+        {/* Footer - Enhanced */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-16 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1, duration: 0.6 }}
+          className="mt-20 text-center"
         >
-          <p className="text-sm text-[#DDD7FE]/60">
-            블록체인 네트워크를 선택하여 게임을 시작하세요
-          </p>
+          <div className="inline-flex items-center gap-3 px-8 py-4 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-xl">
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="h-2 w-2 rounded-full bg-gradient-to-r from-[#6E54FF] to-[#FF8EE4]"
+            />
+            <p className="text-sm text-white/70 font-medium">
+              Select a blockchain network to start playing
+            </p>
+          </div>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.2 }}
+            className="mt-6 text-xs text-white/40"
+          >
+            Powered by Monad Testnet
+          </motion.p>
         </motion.div>
       </div>
     </div>

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mon Blitz - 블록체인 가격 예측 게임",
+  title: "Monder - 블록체인 가격 예측 게임",
   description: "실시간 코인 가격을 예측하고 승부하세요. 다양한 블록체인 네트워크에서 게임에 참여하세요.",
 };
 
