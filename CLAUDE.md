@@ -50,3 +50,5 @@ When assisting with this project:
 3. **Use Monad MCP tools** when interacting with the Monad testnet blockchain
 4. **Maintain consistency** with the coding standards defined in each rule file
 5. **Check project requirements** in the requirements.mdc file for project-specific guidelines
+
+**monad code snipet** https://docs.monad.xyz/developer-essentials/best-practices
