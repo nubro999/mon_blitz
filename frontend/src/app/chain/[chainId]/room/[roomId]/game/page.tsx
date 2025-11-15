@@ -107,6 +107,7 @@ export default function GamePage() {
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [previousPrice, setPreviousPrice] = useState<number>(0);
   const [endPrice, setEndPrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState<"up" | "down" | null>(null);
   const [totalPot, setTotalPot] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
     null
@@ -129,6 +130,23 @@ export default function GamePage() {
   const cardRef = useRef<HTMLDivElement>(null);
   const gameEndedRef = useRef<boolean>(false); // Track if game has ended to prevent WebSocket from restarting
 
+  // Fetch real Ethereum price from CoinGecko
+  const fetchEthPrice = async () => {
+    try {
+      const response = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'
+      );
+      const data = await response.json();
+      const ethPrice = data.ethereum.usd;
+      console.log(`💰 Fetched ETH price: $${ethPrice}`);
+      return ethPrice;
+    } catch (error) {
+      console.error('Failed to fetch ETH price:', error);
+      // Fallback to random price if API fails
+      return 3000 + Math.floor(Math.random() * 1000);
+    }
+  };
+
   // Mock players initialization
   const initializeMockPlayers = () => {
     const mockPlayers: Player[] = [
@@ -147,10 +165,12 @@ export default function GamePage() {
   useEffect(() => {
     initializeMockPlayers();
 
-    // Auto-start game after 2 seconds
-    const timer = setTimeout(() => {
+    // Auto-start game after 2 seconds and fetch initial price
+    const timer = setTimeout(async () => {
+      const initialPrice = await fetchEthPrice();
+      setCurrentPrice(initialPrice);
+      setPreviousPrice(initialPrice);
       setGameState("betting");
-      setCurrentPrice(3500 + Math.floor(Math.random() * 100));
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -163,23 +183,40 @@ export default function GamePage() {
       return;
     }
 
-    const timer = setTimeout(() => {
+    // 게임이 이미 종료되었으면 실행하지 않음
+    if (gameEndedRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
       console.log("🔍 Checking game state:", {
-        activePlayers: activePlayers.length,
+        roundNumber,
         gameState,
         gameEnded: gameEndedRef.current
       });
 
-      // 1명만 남았으면 게임 종료
-      if (activePlayers.length <= 1) {
-        console.log("🏆 Game over! Going to final winner screen");
-        gameEndedRef.current = true; // Mark game as ended
-        setGameState("finalWinner");
-        return;
-      }
-
       console.log("▶️ Moving to next round");
-      // 다음 라운드로 진행
+
+      // 다음 라운드로 진행 - 새로운 가격 가져오기
+      const newPrice = await fetchEthPrice();
+
+      setCurrentPrice(prevPrice => {
+        // 가격 변동 계산
+        if (newPrice > prevPrice) {
+          setPriceChange("up");
+          console.log(`📈 Price UP: $${prevPrice} → $${newPrice}`);
+        } else if (newPrice < prevPrice) {
+          setPriceChange("down");
+          console.log(`📉 Price DOWN: $${prevPrice} → $${newPrice}`);
+        } else {
+          setPriceChange(null);
+          console.log(`➡️ Price SAME: $${prevPrice}`);
+        }
+
+        setPreviousPrice(prevPrice);
+        return newPrice;
+      });
+
       setRoundNumber(prev => prev + 1);
       setBettingCountdown(BETTING_TIME);
       setUserBet(null);
@@ -187,12 +224,11 @@ export default function GamePage() {
       setShowResultStamp(false);
       setUserWon(null);
       setEliminatedThisRound([]);
-      setCurrentPrice(3500 + Math.floor(Math.random() * 100));
       setGameState("betting");
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [gameState, activePlayers.length]);
+  }, [gameState, roundNumber]);
 
   // 스와이프 방향 추적
   useMotionValueEvent(x, "change", (latest) => {
@@ -365,15 +401,6 @@ export default function GamePage() {
       const winningDirection = data.correctAnswer ? "up" : "down";
       const currentActivePlayers = activePlayers.filter(p => !p.isEliminated);
 
-      // 1명만 남았으면 게임 종료
-      if (currentActivePlayers.length <= 1) {
-        gameEndedRef.current = true;
-        setTimeout(() => {
-          setGameState("finalWinner");
-        }, 3000);
-        return;
-      }
-
       // Randomly assign bets to mock players
       const playersWithBets = currentActivePlayers.map(player => ({
         ...player,
@@ -409,6 +436,16 @@ export default function GamePage() {
       setEliminatedThisRound([eliminatedPlayer]);
 
       console.log(`🎯 After elimination (WebSocket): ${newActivePlayers.length} players remain`);
+
+      // 탈락 후 정확히 1명만 남았으면 게임 종료
+      if (newActivePlayers.length === 1) {
+        gameEndedRef.current = true;
+        setTimeout(() => {
+          setGameState("finalWinner");
+        }, 3000);
+        setGameState("result");
+        return;
+      }
 
       // Always show result screen first, then decide next state
       setGameState("result");
@@ -456,64 +493,14 @@ export default function GamePage() {
     } else if (gameState === "betting" && bettingCountdown === 0) {
       // Trigger mock round-end when countdown reaches 0
       const timer = setTimeout(() => {
-        const randomDirection = Math.random() > 0.5;
-        const newPrice = currentPrice + (randomDirection ? 50 : -50);
-
-        setPriceDirection(randomDirection ? "up" : "down");
-        setPreviousPrice(currentPrice);
-        setEndPrice(newPrice);
-        setShowResultStamp(true);
-
-        // Check user win/loss
-        if (userBet !== null) {
-          const won = (userBet === "up" && randomDirection) || (userBet === "down" && !randomDirection);
-          setUserWon(won);
-        } else {
+        // 사용자가 베팅하지 않았으면 자동 패배
+        if (userBet === null) {
+          setPriceDirection("down");
+          setPreviousPrice(currentPrice);
+          setEndPrice(currentPrice - 50);
+          setShowResultStamp(true);
           setUserWon(false);
-        }
 
-        // Mock elimination logic - 매 라운드마다 정확히 1명 탈락
-        const winningDirection = randomDirection ? "up" : "down";
-        const currentActivePlayers = activePlayers.filter(p => !p.isEliminated);
-
-        // Randomly assign bets to mock players
-        const playersWithBets = currentActivePlayers.map(player => ({
-          ...player,
-          bet: Math.random() > 0.5 ? "up" : "down" as "up" | "down"
-        }));
-
-        // Find losers (wrong bets)
-        const losers = playersWithBets.filter(p => p.bet !== winningDirection);
-
-        let eliminatedPlayer: Player;
-
-        if (losers.length > 0) {
-          // Randomly eliminate one loser
-          const randomLoserIndex = Math.floor(Math.random() * losers.length);
-          eliminatedPlayer = losers[randomLoserIndex];
-        } else {
-          // If everyone bet correctly, randomly eliminate one player (must eliminate someone every round)
-          const randomIndex = Math.floor(Math.random() * currentActivePlayers.length);
-          eliminatedPlayer = currentActivePlayers[randomIndex];
-        }
-
-        const updatedPlayers = players.map(p =>
-          p.address === eliminatedPlayer.address
-            ? { ...p, isEliminated: true }
-            : p
-        );
-        setPlayers(updatedPlayers);
-
-        const newActivePlayers = currentActivePlayers.filter(
-          p => p.address !== eliminatedPlayer.address
-        );
-        setActivePlayers(newActivePlayers);
-        setEliminatedThisRound([eliminatedPlayer]);
-
-        console.log(`🎯 After elimination: ${newActivePlayers.length} players remain`);
-
-        // 탈락 후 1명만 남았으면 게임 종료
-        if (newActivePlayers.length <= 1) {
           gameEndedRef.current = true;
           setTimeout(() => {
             setGameState("finalWinner");
@@ -522,12 +509,76 @@ export default function GamePage() {
           return;
         }
 
-        // Always show result screen first, then decide next state
+        // 사용자가 DOWN으로 베팅했으면 바로 패배
+        if (userBet === "down") {
+          setPriceDirection("down");
+          setPreviousPrice(currentPrice);
+          setEndPrice(currentPrice - 50);
+          setShowResultStamp(true);
+          setUserWon(false);
+
+          gameEndedRef.current = true;
+          setTimeout(() => {
+            setGameState("finalWinner");
+          }, 3000);
+          setGameState("result");
+          return;
+        }
+
+        // 사용자가 UP으로 베팅했으면 항상 성공
+        const newPrice = currentPrice + 50;
+        setPriceDirection("up");
+        setPreviousPrice(currentPrice);
+        setEndPrice(newPrice);
+        setShowResultStamp(true);
+        setUserWon(true);
+
+        // Mock 플레이어 탈락 처리 - 매 라운드마다 1명씩 탈락
+        setActivePlayers(prevActive => {
+          const currentActivePlayers = prevActive.filter(p => !p.isEliminated);
+
+          if (currentActivePlayers.length > 1) {
+            // 랜덤으로 1명 선택해서 탈락
+            const randomIndex = Math.floor(Math.random() * currentActivePlayers.length);
+            const eliminatedPlayer = currentActivePlayers[randomIndex];
+
+            setPlayers(prevPlayers =>
+              prevPlayers.map(p =>
+                p.address === eliminatedPlayer.address
+                  ? { ...p, isEliminated: true }
+                  : p
+              )
+            );
+
+            const newActivePlayers = currentActivePlayers.filter(
+              p => p.address !== eliminatedPlayer.address
+            );
+
+            setEliminatedThisRound([eliminatedPlayer]);
+            console.log(`🎯 Round ${roundNumber}: ${eliminatedPlayer.name} eliminated. ${newActivePlayers.length} players remain`);
+
+            return newActivePlayers;
+          }
+
+          return prevActive;
+        });
+
+        // 6번째 라운드 성공하면 승리
+        if (roundNumber >= 6) {
+          gameEndedRef.current = true;
+          setTimeout(() => {
+            setGameState("finalWinner");
+          }, 3000);
+          setGameState("result");
+          return;
+        }
+
+        // 다음 라운드로 진행
         setGameState("result");
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [gameState, bettingCountdown, currentPrice, userBet, activePlayers, players, roundNumber]);
+  }, [gameState, bettingCountdown, currentPrice, userBet, roundNumber]);
 
   // 결과 화면 표시 타이머
   useEffect(() => {
@@ -808,9 +859,20 @@ export default function GamePage() {
                     {chain.name}
                   </h2>
                   <p className="text-[#DDD7FE]/80 text-sm mb-3">{chain.symbol}</p>
-                  <div className="text-4xl font-bold text-white mb-2">
+                  <div className={`text-4xl font-bold mb-2 transition-colors ${
+                    priceChange === "up" ? "text-green-400" :
+                    priceChange === "down" ? "text-red-400" :
+                    "text-white"
+                  }`}>
                     ${currentPrice.toLocaleString()}
                   </div>
+                  {priceChange && (
+                    <div className={`text-sm font-medium ${
+                      priceChange === "up" ? "text-green-400" : "text-red-400"
+                    }`}>
+                      {priceChange === "up" ? "▲" : "▼"} {priceChange === "up" ? "올랐습니다" : "떨어졌습니다"}
+                    </div>
+                  )}
                 </div>
 
                 {/* 참가자 정보 - 간소화 */}
