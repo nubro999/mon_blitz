@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { ConfigService } from '../common/config/config.service';
 import { ChainType } from '../common/constants/chain-types';
@@ -7,11 +7,13 @@ import { ChainType } from '../common/constants/chain-types';
 import * as OXGameV2ABI from '../../../contract/artifacts/contracts/OXGameV2.sol/OXGameV2.json';
 
 @Injectable()
-export class BlockchainService implements OnModuleInit {
+export class BlockchainService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BlockchainService.name);
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
   private contract: ethers.Contract;
+  private lastPolledBlock: number = 0;
+  private pollingInterval: NodeJS.Timeout;
 
   constructor(private configService: ConfigService) {}
 
@@ -38,7 +40,11 @@ export class BlockchainService implements OnModuleInit {
       this.logger.log(`📝 Contract: ${contractAddress}`);
       this.logger.log(`🔑 Oracle: ${this.wallet.address}`);
 
-      // Event listeners 시작
+      // Get current block for polling baseline
+      this.lastPolledBlock = await this.provider.getBlockNumber();
+      this.logger.log(`📊 Starting event polling from block: ${this.lastPolledBlock}`);
+
+      // Event listeners 시작 (polling-based)
       this.startEventListeners();
     } catch (error) {
       this.logger.error('❌ Blockchain connection failed:', error);
@@ -89,56 +95,109 @@ export class BlockchainService implements OnModuleInit {
   }
 
   /**
-   * Event Listeners
+   * Event Listeners - Using Polling instead of filters
+   * This is required because Monad testnet doesn't support eth_newFilter
    */
   private startEventListeners() {
-    // PlayerJoined 이벤트
-    this.contract.on(
-      'PlayerJoined',
-      (chainType, player, playerCount, event) => {
-        this.logger.log(
-          `👤 Player joined ${ChainType[Number(chainType)]}: ${player} (Total: ${playerCount})`,
-        );
-      },
-    );
+    // Poll for events every 3 seconds
+    this.pollingInterval = setInterval(async () => {
+      try {
+        const currentBlock = await this.provider.getBlockNumber();
 
-    // RoundStarted 이벤트
-    this.contract.on('RoundStarted', (chainType, round, startTime, event) => {
-      this.logger.log(
-        `🎮 Round started ${ChainType[Number(chainType)]} #${round}`,
+        if (currentBlock > this.lastPolledBlock) {
+          // Query events from last polled block to current
+          await this.pollEvents(this.lastPolledBlock + 1, currentBlock);
+          this.lastPolledBlock = currentBlock;
+        }
+      } catch (error) {
+        this.logger.error('Event polling error:', error.message);
+      }
+    }, 3000);
+
+    this.logger.log('👂 Event polling started (every 3 seconds)');
+  }
+
+  /**
+   * Poll for events using queryFilter
+   */
+  private async pollEvents(fromBlock: number, toBlock: number) {
+    try {
+      // PlayerJoined events
+      const playerJoinedEvents = await this.contract.queryFilter(
+        this.contract.filters.PlayerJoined(),
+        fromBlock,
+        toBlock,
       );
-    });
-
-    // RoundEnded 이벤트
-    this.contract.on(
-      'RoundEnded',
-      (chainType, round, correctAnswer, survivorCount, event) => {
+      for (const event of playerJoinedEvents) {
+        const args = event.args;
         this.logger.log(
-          `🏁 Round ended ${ChainType[Number(chainType)]} #${round} - Answer: ${correctAnswer ? 'O' : 'X'} - Survivors: ${survivorCount}`,
+          `👤 Player joined ${ChainType[Number(args.chainType)]}: ${args.player} (Total: ${args.playerCount})`,
         );
-      },
-    );
+      }
 
-    // PlayerEliminated 이벤트
-    this.contract.on(
-      'PlayerEliminated',
-      (chainType, player, round, reason, event) => {
+      // RoundStarted events
+      const roundStartedEvents = await this.contract.queryFilter(
+        this.contract.filters.RoundStarted(),
+        fromBlock,
+        toBlock,
+      );
+      for (const event of roundStartedEvents) {
+        const args = event.args;
         this.logger.log(
-          `❌ Player eliminated ${ChainType[Number(chainType)]}: ${player} - Reason: ${reason}`,
+          `🎮 Round started ${ChainType[Number(args.chainType)]} #${args.round}`,
         );
-      },
-    );
+      }
 
-    // GameEnded 이벤트
-    this.contract.on(
-      'GameEnded',
-      (chainType, winners, prizePerWinner, event) => {
+      // RoundEnded events
+      const roundEndedEvents = await this.contract.queryFilter(
+        this.contract.filters.RoundEnded(),
+        fromBlock,
+        toBlock,
+      );
+      for (const event of roundEndedEvents) {
+        const args = event.args;
         this.logger.log(
-          `🎉 Game ended ${ChainType[Number(chainType)]} - Winners: ${winners.length} - Prize: ${ethers.formatEther(prizePerWinner)} MON`,
+          `🏁 Round ended ${ChainType[Number(args.chainType)]} #${args.round} - Answer: ${args.correctAnswer ? 'O' : 'X'} - Survivors: ${args.survivorCount}`,
         );
-      },
-    );
+      }
 
-    this.logger.log('👂 Event listeners started');
+      // PlayerEliminated events
+      const playerEliminatedEvents = await this.contract.queryFilter(
+        this.contract.filters.PlayerEliminated(),
+        fromBlock,
+        toBlock,
+      );
+      for (const event of playerEliminatedEvents) {
+        const args = event.args;
+        this.logger.log(
+          `❌ Player eliminated ${ChainType[Number(args.chainType)]}: ${args.player} - Reason: ${args.reason}`,
+        );
+      }
+
+      // GameEnded events
+      const gameEndedEvents = await this.contract.queryFilter(
+        this.contract.filters.GameEnded(),
+        fromBlock,
+        toBlock,
+      );
+      for (const event of gameEndedEvents) {
+        const args = event.args;
+        this.logger.log(
+          `🎉 Game ended ${ChainType[Number(args.chainType)]} - Winners: ${args.winners.length} - Prize: ${ethers.formatEther(args.prizePerWinner)} MON`,
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error querying events:', error.message);
+    }
+  }
+
+  /**
+   * Cleanup on module destroy
+   */
+  onModuleDestroy() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.logger.log('Event polling stopped');
+    }
   }
 }

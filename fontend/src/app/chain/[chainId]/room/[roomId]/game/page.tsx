@@ -15,12 +15,14 @@ import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { BrowserProvider, Contract, Eip1193Provider } from "ethers";
 import Image from "next/image";
-import TradingViewWidget from "react-tradingview-widget";
 
 // Ethereum window object type
 declare global {
   interface Window {
-    ethereum?: Eip1193Provider;
+    ethereum?: Eip1193Provider & {
+      on?: (event: string, callback: (...args: any[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
+    };
   }
 }
 
@@ -73,7 +75,7 @@ interface Player {
   deposit?: number;
 }
 
-const MAX_ROUNDS = 6; // 최대 6라운드 후 게임 종료
+const MAX_ROUNDS = 5; // 6명 시작, 매 라운드 1명 탈락 = 5라운드 후 1명 남음
 
 type GameState =
   | "loading"
@@ -125,6 +127,7 @@ export default function GamePage() {
   const opacity = useTransform(x, [-200, -50, 0, 50, 200], [0, 1, 1, 1, 0]);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const gameEndedRef = useRef<boolean>(false); // Track if game has ended to prevent WebSocket from restarting
 
   // Mock players initialization
   const initializeMockPlayers = () => {
@@ -153,22 +156,43 @@ export default function GamePage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Mock game loop - increment round number
+  // Mock game loop - increment round number or end game
   useEffect(() => {
-    if (gameState === "result" && roundNumber < MAX_ROUNDS) {
-      const timer = setTimeout(() => {
-        setRoundNumber(prev => prev + 1);
-        setBettingCountdown(BETTING_TIME);
-        setUserBet(null);
-        setPriceDirection(null);
-        setShowResultStamp(false);
-        setUserWon(null);
-        setCurrentPrice(3500 + Math.floor(Math.random() * 100));
-        setGameState("betting");
-      }, 3000);
-      return () => clearTimeout(timer);
+    // Only run this effect when in "result" state
+    if (gameState !== "result") {
+      return;
     }
-  }, [gameState, roundNumber]);
+
+    const timer = setTimeout(() => {
+      console.log("🔍 Checking game state:", {
+        activePlayers: activePlayers.length,
+        gameState,
+        gameEnded: gameEndedRef.current
+      });
+
+      // 1명만 남았으면 게임 종료
+      if (activePlayers.length <= 1) {
+        console.log("🏆 Game over! Going to final winner screen");
+        gameEndedRef.current = true; // Mark game as ended
+        setGameState("finalWinner");
+        return;
+      }
+
+      console.log("▶️ Moving to next round");
+      // 다음 라운드로 진행
+      setRoundNumber(prev => prev + 1);
+      setBettingCountdown(BETTING_TIME);
+      setUserBet(null);
+      setPriceDirection(null);
+      setShowResultStamp(false);
+      setUserWon(null);
+      setEliminatedThisRound([]);
+      setCurrentPrice(3500 + Math.floor(Math.random() * 100));
+      setGameState("betting");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [gameState, activePlayers.length]);
 
   // 스와이프 방향 추적
   useMotionValueEvent(x, "change", (latest) => {
@@ -285,6 +309,13 @@ export default function GamePage() {
 
     newSocket.on("round-start", (data) => {
       console.log("📢 Round Start:", data);
+
+      // 게임이 이미 종료되었으면 무시 (ref 사용)
+      if (gameEndedRef.current) {
+        console.log("⚠️ Ignoring round-start: game already finished (ref check)");
+        return;
+      }
+
       const currentRound = data.roundNumber;
 
       setRoundNumber(currentRound);
@@ -299,6 +330,7 @@ export default function GamePage() {
 
       // 6라운드 완료 후 게임 종료
       if (currentRound > MAX_ROUNDS) {
+        gameEndedRef.current = true;
         setGameState("finalWinner");
       } else {
         setGameState("betting");
@@ -307,6 +339,12 @@ export default function GamePage() {
 
     newSocket.on("round-end", (data) => {
       console.log("📢 Round End:", data);
+
+      // 게임이 이미 종료되었으면 무시
+      if (gameEndedRef.current) {
+        console.log("⚠️ Ignoring round-end: game already finished");
+        return;
+      }
 
       setPriceDirection(data.correctAnswer ? "up" : "down");
       setPreviousPrice(data.previousPrice);
@@ -323,9 +361,18 @@ export default function GamePage() {
         setUserWon(false);
       }
 
-      // Mock elimination logic: eliminate 1 player per round
+      // Mock elimination logic - 매 라운드마다 정확히 1명 탈락
       const winningDirection = data.correctAnswer ? "up" : "down";
       const currentActivePlayers = activePlayers.filter(p => !p.isEliminated);
+
+      // 1명만 남았으면 게임 종료
+      if (currentActivePlayers.length <= 1) {
+        gameEndedRef.current = true;
+        setTimeout(() => {
+          setGameState("finalWinner");
+        }, 3000);
+        return;
+      }
 
       // Randomly assign bets to mock players
       const playersWithBets = currentActivePlayers.map(player => ({
@@ -336,41 +383,35 @@ export default function GamePage() {
       // Find losers (wrong bets)
       const losers = playersWithBets.filter(p => p.bet !== winningDirection);
 
-      let eliminatedPlayer: Player | null = null;
+      let eliminatedPlayer: Player;
 
       if (losers.length > 0) {
         // Randomly eliminate one loser
         const randomLoserIndex = Math.floor(Math.random() * losers.length);
         eliminatedPlayer = losers[randomLoserIndex];
-      } else if (currentActivePlayers.length > 1) {
-        // If everyone bet correctly, randomly eliminate one player
+      } else {
+        // If everyone bet correctly, randomly eliminate one player (must eliminate someone every round)
         const randomIndex = Math.floor(Math.random() * currentActivePlayers.length);
         eliminatedPlayer = currentActivePlayers[randomIndex];
       }
 
-      if (eliminatedPlayer) {
-        const updatedPlayers = players.map(p =>
-          p.address === eliminatedPlayer!.address
-            ? { ...p, isEliminated: true }
-            : p
-        );
-        setPlayers(updatedPlayers);
+      const updatedPlayers = players.map(p =>
+        p.address === eliminatedPlayer.address
+          ? { ...p, isEliminated: true }
+          : p
+      );
+      setPlayers(updatedPlayers);
 
-        const newActivePlayers = currentActivePlayers.filter(
-          p => p.address !== eliminatedPlayer!.address
-        );
-        setActivePlayers(newActivePlayers);
-        setEliminatedThisRound([eliminatedPlayer]);
-      }
+      const newActivePlayers = currentActivePlayers.filter(
+        p => p.address !== eliminatedPlayer.address
+      );
+      setActivePlayers(newActivePlayers);
+      setEliminatedThisRound([eliminatedPlayer]);
 
-      // 6라운드 완료 확인 또는 1명 남았을 때
-      if (roundNumber >= MAX_ROUNDS || currentActivePlayers.length <= 1) {
-        setTimeout(() => {
-          setGameState("finalWinner");
-        }, 3000);
-      } else {
-        setGameState("result");
-      }
+      console.log(`🎯 After elimination (WebSocket): ${newActivePlayers.length} players remain`);
+
+      // Always show result screen first, then decide next state
+      setGameState("result");
     });
 
     newSocket.on("price-update", (data) => {
@@ -402,6 +443,11 @@ export default function GamePage() {
 
   // 베팅 카운트다운 (실제 WebSocket 기반)
   useEffect(() => {
+    // 게임이 종료되었으면 실행하지 않음
+    if (gameEndedRef.current) {
+      return;
+    }
+
     if (gameState === "betting" && bettingCountdown > 0) {
       const timer = setTimeout(() => {
         setBettingCountdown(bettingCountdown - 1);
@@ -426,7 +472,7 @@ export default function GamePage() {
           setUserWon(false);
         }
 
-        // Mock elimination logic
+        // Mock elimination logic - 매 라운드마다 정확히 1명 탈락
         const winningDirection = randomDirection ? "up" : "down";
         const currentActivePlayers = activePlayers.filter(p => !p.isEliminated);
 
@@ -439,50 +485,45 @@ export default function GamePage() {
         // Find losers (wrong bets)
         const losers = playersWithBets.filter(p => p.bet !== winningDirection);
 
-        let eliminatedPlayer: Player | null = null;
+        let eliminatedPlayer: Player;
 
         if (losers.length > 0) {
           // Randomly eliminate one loser
           const randomLoserIndex = Math.floor(Math.random() * losers.length);
           eliminatedPlayer = losers[randomLoserIndex];
-        } else if (currentActivePlayers.length > 1) {
-          // If everyone bet correctly, randomly eliminate one player
+        } else {
+          // If everyone bet correctly, randomly eliminate one player (must eliminate someone every round)
           const randomIndex = Math.floor(Math.random() * currentActivePlayers.length);
           eliminatedPlayer = currentActivePlayers[randomIndex];
         }
 
-        if (eliminatedPlayer) {
-          const updatedPlayers = players.map(p =>
-            p.address === eliminatedPlayer!.address
-              ? { ...p, isEliminated: true }
-              : p
-          );
-          setPlayers(updatedPlayers);
+        const updatedPlayers = players.map(p =>
+          p.address === eliminatedPlayer.address
+            ? { ...p, isEliminated: true }
+            : p
+        );
+        setPlayers(updatedPlayers);
 
-          const newActivePlayers = currentActivePlayers.filter(
-            p => p.address !== eliminatedPlayer!.address
-          );
-          setActivePlayers(newActivePlayers);
-          setEliminatedThisRound([eliminatedPlayer]);
+        const newActivePlayers = currentActivePlayers.filter(
+          p => p.address !== eliminatedPlayer.address
+        );
+        setActivePlayers(newActivePlayers);
+        setEliminatedThisRound([eliminatedPlayer]);
 
-          // Check if game should end
-          if (roundNumber >= MAX_ROUNDS || newActivePlayers.length <= 1) {
-            setTimeout(() => {
-              setGameState("finalWinner");
-            }, 3000);
-          } else {
-            setGameState("result");
-          }
-        } else {
-          // No elimination needed
-          if (roundNumber >= MAX_ROUNDS) {
-            setTimeout(() => {
-              setGameState("finalWinner");
-            }, 3000);
-          } else {
-            setGameState("result");
-          }
+        console.log(`🎯 After elimination: ${newActivePlayers.length} players remain`);
+
+        // 탈락 후 1명만 남았으면 게임 종료
+        if (newActivePlayers.length <= 1) {
+          gameEndedRef.current = true;
+          setTimeout(() => {
+            setGameState("finalWinner");
+          }, 3000);
+          setGameState("result");
+          return;
         }
+
+        // Always show result screen first, then decide next state
+        setGameState("result");
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -744,22 +785,21 @@ export default function GamePage() {
                   </p>
                 </div>
 
-                {/* 차트 영역 - TradingView 위젯 */}
-                <div className="bg-white/5 rounded-2xl overflow-hidden h-48 mb-4 relative z-10">
-                  <TradingViewWidget
-                    symbol={chain.tradingViewSymbol}
-                    theme="dark"
-                    interval="1"
-                    timezone="Etc/UTC"
-                    style="1"
-                    locale="en"
-                    toolbar_bg="#0E091C"
-                    enable_publishing={false}
-                    hide_side_toolbar={false}
-                    allow_symbol_change={false}
-                    container_id="tradingview_widget"
-                    autosize
-                  />
+                {/* 차트 영역 - Price Chart Placeholder */}
+                <div className="bg-white/5 rounded-2xl overflow-hidden h-48 mb-4 relative z-10 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-[#DDD7FE]/40 mb-2">
+                      <svg className="w-24 h-24 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+                      </svg>
+                    </div>
+                    <p className="text-[#DDD7FE]/60 text-sm font-medium">
+                      {chain.symbol} Chart
+                    </p>
+                    <p className="text-[#DDD7FE]/40 text-xs mt-1">
+                      Live price: ${currentPrice.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
 
                 {/* 가격 정보 */}
@@ -782,11 +822,6 @@ export default function GamePage() {
                     <p className="text-white font-bold text-2xl">
                       {activePlayers.length}명
                     </p>
-                    {walletAddress && (
-                      <p className="text-green-400 text-xs mt-1">
-                        ✓ 참가중
-                      </p>
-                    )}
                   </div>
                 </div>
 

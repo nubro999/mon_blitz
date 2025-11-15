@@ -10,7 +10,10 @@ import Image from "next/image";
 // Ethereum window object type
 declare global {
   interface Window {
-    ethereum?: Eip1193Provider;
+    ethereum?: Eip1193Provider & {
+      on?: (event: string, callback: (...args: any[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
+    };
   }
 }
 
@@ -252,7 +255,7 @@ export default function ChainSelection() {
 
     // 계정 변경 감지
     if (window.ethereum) {
-      window.ethereum.on("accountsChanged", (accounts: any) => {
+      window.ethereum.on?.("accountsChanged", (accounts: any) => {
         if (accounts.length === 0) {
           disconnectWallet();
         } else {
@@ -261,7 +264,7 @@ export default function ChainSelection() {
       });
 
       // 네트워크 변경 감지
-      window.ethereum.on("chainChanged", () => {
+      window.ethereum.on?.("chainChanged", () => {
         checkWalletConnection();
       });
     }
