@@ -91,27 +91,30 @@ export class OracleService {
       // 3. 스마트 컨트랙트에 processRound 호출
       try {
         await this.blockchainService.processRound(chainType, answer);
-
-        // 4. 라운드 카운터 증가
-        const roundNumber = this.roundCounters.get(chainType) || 0;
-        this.roundCounters.set(chainType, roundNumber + 1);
-
-        // 5. WebSocket으로 결과 브로드캐스트
-        this.gameGateway.broadcastRoundEnd({
-          chainType: chainName,
-          roundNumber,
-          previousPrice,
-          currentPrice,
-          correctAnswer: answer,
-          change,
-          changePercent,
-        });
       } catch (error) {
         this.logger.error(
           `❌ Failed to call processRound for ${chainName}:`,
           error.message,
         );
       }
+
+      // 4. 컨트랙트에서 실제 라운드 번호 조회 (processRound 성공/실패 무관)
+      const poolInfo = await this.blockchainService.getPoolInfo(chainType);
+      const currentRound = poolInfo?.currentRound || 0;
+
+      // 로컬 카운터 업데이트 (동기화)
+      this.roundCounters.set(chainType, currentRound);
+
+      // 5. WebSocket으로 결과 브로드캐스트 (완료된 라운드 번호)
+      this.gameGateway.broadcastRoundEnd({
+        chainType: chainName,
+        roundNumber: currentRound,
+        previousPrice,
+        currentPrice,
+        correctAnswer: answer,
+        change,
+        changePercent,
+      });
     } else {
       this.logger.log(`ℹ️  ${chainName} First round - no previous price`);
     }
@@ -122,8 +125,10 @@ export class OracleService {
       timestamp: Date.now(),
     });
 
-    // 7. 새 라운드 시작 알림
-    const nextRoundNumber = (this.roundCounters.get(chainType) || 0) + 1;
+    // 7. 새 라운드 시작 알림 (컨트랙트에서 실제 라운드 번호 조회)
+    const poolInfo = await this.blockchainService.getPoolInfo(chainType);
+    const nextRoundNumber = poolInfo?.currentRound || 1;
+
     this.gameGateway.broadcastRoundStart({
       chainType: chainName,
       roundNumber: nextRoundNumber,

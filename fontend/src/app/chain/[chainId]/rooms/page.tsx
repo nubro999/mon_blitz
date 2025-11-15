@@ -2,6 +2,7 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import { Users, Plus, Clock } from 'lucide-react';
+import Image from 'next/image';
 
 const chains = {
   ethereum: { name: 'Ethereum', symbol: 'ETH', color: 'bg-blue-500' },
@@ -54,28 +55,40 @@ export default function RoomList() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#0E091C] via-[#6E54FF]/20 to-[#000000] p-4">
       <div className="mx-auto max-w-5xl">
         {/* 헤더 */}
         <div className="mb-10">
           <button
             onClick={() => router.back()}
-            className="mb-6 text-slate-400 hover:text-white transition-colors flex items-center gap-2 group"
+            className="mb-6 text-[#DDD7FE]/80 hover:text-white transition-colors flex items-center gap-2 group"
           >
             <svg className="h-4 w-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             체인 선택으로 돌아가기
           </button>
+
+          {/* Logo */}
+          <div className="flex items-center justify-center mb-6">
+            <Image
+              src="/logo.png"
+              alt="Mon Blitz Logo"
+              width={200}
+              height={60}
+              className="h-14 w-auto"
+            />
+          </div>
+
           <div className="flex items-center gap-5 mb-8">
             <div className={`h-20 w-20 rounded-2xl ${chain.color} flex items-center justify-center text-white font-bold text-2xl shadow-xl shadow-black/30`}>
               {chain.symbol[0]}
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-[#DDD7FE] bg-clip-text text-transparent mb-2">
                 {chain.name} 게임방
               </h1>
-              <p className="text-slate-300 text-lg">
+              <p className="text-[#DDD7FE] text-lg">
                 최대 10명의 플레이어와 함께 가격을 예측하세요
               </p>
             </div>
@@ -84,7 +97,7 @@ export default function RoomList() {
           {/* 방 생성 버튼 */}
           <button
             onClick={handleCreateRoom}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
+            className="flex items-center gap-2 bg-gradient-to-r from-[#6E54FF] to-[#6E54FF] hover:from-[#6E54FF]/80 hover:to-[#6E54FF]/80 text-white px-8 py-4 rounded-xl font-semibold transition-all shadow-lg shadow-[#6E54FF]/30 hover:shadow-xl hover:shadow-[#6E54FF]/40 hover:scale-105"
           >
             <Plus className="h-5 w-5" />
             새 방 만들기
@@ -96,7 +109,7 @@ export default function RoomList() {
           {rooms.map((room) => (
             <div
               key={room.id}
-              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all shadow-lg hover:shadow-2xl hover:shadow-purple-500/10"
+              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all shadow-lg hover:shadow-2xl hover:shadow-[#6E54FF]/10"
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -105,11 +118,11 @@ export default function RoomList() {
                       {room.name}
                     </h3>
                     <div className={`h-3 w-3 rounded-full ${getStatusColor(room.status)} shadow-lg`} />
-                    <span className="text-sm text-slate-400 font-medium">
+                    <span className="text-sm text-[#DDD7FE]/80 font-medium">
                       {getStatusText(room.status)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-6 text-slate-300">
+                  <div className="flex items-center gap-6 text-[#DDD7FE]">
                     <div className="flex items-center gap-2">
                       <Users className="h-5 w-5" />
                       <span className="font-medium">{room.players}/{room.maxPlayers}</span>
@@ -126,14 +139,17 @@ export default function RoomList() {
                 <div className="flex items-center gap-4">
                   {/* 참가자 아바타들 */}
                   <div className="flex -space-x-2">
-                    {Array.from({ length: Math.min(room.players, 5) }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 border-2 border-slate-800 shadow-lg"
-                      />
-                    ))}
+                    {Array.from({ length: Math.min(room.players, 5) }).map((_, i) => {
+                      const avatarColors = ['bg-[#85E6FF]', 'bg-[#B9E3F9]', 'bg-[#FF8EE4]', 'bg-[#FFAE45]'];
+                      return (
+                        <div
+                          key={i}
+                          className={`h-10 w-10 rounded-full ${avatarColors[i % 4]} border-2 border-[#0E091C] shadow-lg`}
+                        />
+                      );
+                    })}
                     {room.players > 5 && (
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-r from-slate-600 to-slate-700 border-2 border-slate-800 flex items-center justify-center text-xs text-white font-semibold shadow-lg">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#0E091C] to-[#000000] border-2 border-[#0E091C] flex items-center justify-center text-xs text-white font-semibold shadow-lg">
                         +{room.players - 5}
                       </div>
                     )}
@@ -152,7 +168,7 @@ export default function RoomList() {
                   {room.status === 'playing' && (
                     <button
                       disabled
-                      className="bg-slate-700/50 text-slate-500 px-7 py-3 rounded-xl font-semibold cursor-not-allowed border border-slate-600/50"
+                      className="bg-[#0E091C]/50 text-[#DDD7FE]/60 px-7 py-3 rounded-xl font-semibold cursor-not-allowed border border-[#DDD7FE]/20"
                     >
                       게임중
                     </button>
@@ -166,10 +182,10 @@ export default function RoomList() {
         {/* 빈 상태 */}
         {rooms.length === 0 && (
           <div className="text-center py-16">
-            <div className="text-slate-400 mb-4">
+            <div className="text-[#DDD7FE]/80 mb-4">
               <Users className="h-20 w-20 mx-auto mb-6 opacity-50" />
               <p className="text-xl mb-2">아직 생성된 방이 없습니다</p>
-              <p className="text-slate-500">첫 번째 방을 만들어 보세요!</p>
+              <p className="text-[#DDD7FE]/60">첫 번째 방을 만들어 보세요!</p>
             </div>
           </div>
         )}

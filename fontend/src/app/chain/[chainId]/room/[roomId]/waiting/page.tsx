@@ -3,6 +3,7 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Users, Play, Crown, ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
 
 const chains = {
   ethereum: { name: 'Ethereum', symbol: 'ETH', color: 'bg-blue-500' },
@@ -72,33 +73,38 @@ export default function WaitingRoom() {
 
   const getPlayerAvatar = (playerId: string, index: number) => {
     const colors = [
-      'from-blue-500 to-blue-600',
-      'from-purple-500 to-purple-600',
-      'from-green-500 to-green-600',
-      'from-yellow-500 to-yellow-600',
-      'from-red-500 to-red-600',
-      'from-indigo-500 to-indigo-600',
-      'from-pink-500 to-pink-600',
-      'from-teal-500 to-teal-600',
-      'from-orange-500 to-orange-600',
-      'from-cyan-500 to-cyan-600',
+      'bg-[#85E6FF]',
+      'bg-[#B9E3F9]',
+      'bg-[#FF8EE4]',
+      'bg-[#FFAE45]',
     ];
 
-    return `bg-gradient-to-r ${colors[index % colors.length]}`;
+    return colors[index % colors.length];
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#0E091C] via-[#6E54FF]/20 to-[#000000] p-4">
       <div className="mx-auto max-w-3xl">
         {/* 헤더 */}
         <div className="mb-10">
           <button
             onClick={handleLeaveRoom}
-            className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors group"
+            className="flex items-center gap-2 text-[#DDD7FE]/80 hover:text-white mb-6 transition-colors group"
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             방 목록으로 돌아가기
           </button>
+
+          {/* Logo */}
+          <div className="flex items-center justify-center mb-6">
+            <Image
+              src="/logo.png"
+              alt="Mon Blitz Logo"
+              width={200}
+              height={60}
+              className="h-12 w-auto"
+            />
+          </div>
 
           <div className="text-center">
             <div className="flex items-center justify-center gap-4 mb-6">
@@ -106,14 +112,14 @@ export default function WaitingRoom() {
                 {chain.symbol[0]}
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-1">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-[#DDD7FE] bg-clip-text text-transparent mb-1">
                   {chain.name} 게임방
                 </h1>
-                <p className="text-slate-300">방 #{roomId.slice(-4)}</p>
+                <p className="text-[#DDD7FE]">방 #{roomId.slice(-4)}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-slate-300 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-3 inline-flex">
+            <div className="flex items-center justify-center gap-2 text-[#DDD7FE] bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl px-6 py-3 inline-flex">
               <Users className="h-5 w-5" />
               <span className="text-lg font-semibold">
                 {players.length}/10 플레이어
@@ -161,7 +167,7 @@ export default function WaitingRoom() {
                       )}
                     </>
                   ) : (
-                    <div className="text-slate-500 text-center">
+                    <div className="text-[#DDD7FE]/60 text-center">
                       <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
                       <p className="text-xs font-medium">대기중</p>
                     </div>
@@ -178,7 +184,7 @@ export default function WaitingRoom() {
             <button
               onClick={handleStartGame}
               disabled={isStarting}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all flex items-center gap-3 mx-auto shadow-2xl shadow-green-500/30 hover:shadow-green-500/40 hover:scale-105 disabled:scale-100"
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-[#0E091C] disabled:to-[#000000] text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all flex items-center gap-3 mx-auto shadow-2xl shadow-green-500/30 hover:shadow-green-500/40 hover:scale-105 disabled:scale-100"
             >
               <Play className="h-6 w-6" />
               {isStarting ? '게임 시작 중...' : '게임 시작하기'}
@@ -186,16 +192,16 @@ export default function WaitingRoom() {
           )}
 
           {isHost && !canStartGame && (
-            <div className="text-slate-400 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 inline-block">
+            <div className="text-[#DDD7FE]/80 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 inline-block">
               <p className="mb-2 font-semibold">최소 5명의 플레이어가 필요합니다</p>
-              <p className="text-sm text-slate-500">현재 {players.length}명 참가중</p>
+              <p className="text-sm text-[#DDD7FE]/60">현재 {players.length}명 참가중</p>
             </div>
           )}
 
           {!isHost && (
-            <div className="text-slate-400 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 inline-block">
+            <div className="text-[#DDD7FE]/80 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 inline-block">
               <p className="font-semibold">방장이 게임을 시작할 때까지 기다려주세요</p>
-              <p className="text-sm mt-2 text-slate-500">
+              <p className="text-sm mt-2 text-[#DDD7FE]/60">
                 {canStartGame ? '게임 시작 준비 완료!' : `${5 - players.length}명 더 필요합니다`}
               </p>
             </div>

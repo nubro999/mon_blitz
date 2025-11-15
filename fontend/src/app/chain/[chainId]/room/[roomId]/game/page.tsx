@@ -12,6 +12,17 @@ import {
 import { TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
+import { BrowserProvider, Contract, Eip1193Provider } from "ethers";
+import Image from "next/image";
+import TradingViewWidget from "react-tradingview-widget";
+
+// Ethereum window object type
+declare global {
+  interface Window {
+    ethereum?: Eip1193Provider;
+  }
+}
 
 const chains = {
   ethereum: {
@@ -53,49 +64,16 @@ const chains = {
 };
 
 interface Player {
-  id: string;
+  address: string;
   name: string;
   avatar: string;
   bet: "up" | "down" | null;
   isEliminated: boolean;
-  deposit: number;
+  id?: string;
+  deposit?: number;
 }
 
-// Mock 참가자 데이터 - 4명으로 설정하여 첫 라운드 후 2명이 남도록
-const initialPlayers: Player[] = [
-  {
-    id: "1",
-    name: "Player 1",
-    avatar: "P1",
-    bet: null,
-    isEliminated: false,
-    deposit: 100,
-  },
-  {
-    id: "2",
-    name: "Player 2",
-    avatar: "P2",
-    bet: null,
-    isEliminated: false,
-    deposit: 100,
-  },
-  {
-    id: "3",
-    name: "Player 3",
-    avatar: "P3",
-    bet: null,
-    isEliminated: false,
-    deposit: 100,
-  },
-  {
-    id: "4",
-    name: "Player 4",
-    avatar: "P4",
-    bet: null,
-    isEliminated: false,
-    deposit: 100,
-  },
-];
+const MAX_ROUNDS = 6; // 최대 6라운드 후 게임 종료
 
 type GameState =
   | "loading"
@@ -118,17 +96,16 @@ export default function GamePage() {
   const [gameState, setGameState] = useState<GameState>("loading");
   const [bettingCountdown, setBettingCountdown] = useState(BETTING_TIME);
   const [roundNumber, setRoundNumber] = useState(1);
-  const [players, setPlayers] = useState<Player[]>(initialPlayers);
-  const [activePlayers, setActivePlayers] = useState<Player[]>(initialPlayers);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [activePlayers, setActivePlayers] = useState<Player[]>([]);
   const [userBet, setUserBet] = useState<"up" | "down" | null>(null);
   const [priceDirection, setPriceDirection] = useState<"up" | "down" | null>(
     null
   );
-  const [currentPrice, setCurrentPrice] = useState<number>(2800);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [previousPrice, setPreviousPrice] = useState<number>(0);
   const [endPrice, setEndPrice] = useState<number | null>(null);
   const [totalPot, setTotalPot] = useState(0);
-  const [tradingViewLoaded, setTradingViewLoaded] = useState(false);
-  const tradingViewRef = useRef<HTMLDivElement>(null);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
     null
   );
@@ -137,11 +114,61 @@ export default function GamePage() {
   const [showResultStamp, setShowResultStamp] = useState(false);
   const [userWon, setUserWon] = useState<boolean | null>(null);
 
+  // WebSocket & Wallet state
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [provider, setProvider] = useState<BrowserProvider | null>(null);
+  const [contract, setContract] = useState<Contract | null>(null);
+
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -50, 0, 50, 200], [0, 1, 1, 1, 0]);
 
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // Mock players initialization
+  const initializeMockPlayers = () => {
+    const mockPlayers: Player[] = [
+      { id: "1", address: "0x1234...5678", name: "Player 1", avatar: "P1", bet: null, isEliminated: false, deposit: BET_AMOUNT },
+      { id: "2", address: "0x2345...6789", name: "Player 2", avatar: "P2", bet: null, isEliminated: false, deposit: BET_AMOUNT },
+      { id: "3", address: "0x3456...789A", name: "Player 3", avatar: "P3", bet: null, isEliminated: false, deposit: BET_AMOUNT },
+      { id: "4", address: "0x4567...89AB", name: "Player 4", avatar: "P4", bet: null, isEliminated: false, deposit: BET_AMOUNT },
+      { id: "5", address: "0x5678...9ABC", name: "Player 5", avatar: "P5", bet: null, isEliminated: false, deposit: BET_AMOUNT },
+      { id: "6", address: "0x6789...ABCD", name: "Player 6", avatar: "P6", bet: null, isEliminated: false, deposit: BET_AMOUNT },
+    ];
+    setPlayers(mockPlayers);
+    setActivePlayers(mockPlayers);
+  };
+
+  // Initialize mock players on mount and start game after 2 seconds
+  useEffect(() => {
+    initializeMockPlayers();
+
+    // Auto-start game after 2 seconds
+    const timer = setTimeout(() => {
+      setGameState("betting");
+      setCurrentPrice(3500 + Math.floor(Math.random() * 100));
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Mock game loop - increment round number
+  useEffect(() => {
+    if (gameState === "result" && roundNumber < MAX_ROUNDS) {
+      const timer = setTimeout(() => {
+        setRoundNumber(prev => prev + 1);
+        setBettingCountdown(BETTING_TIME);
+        setUserBet(null);
+        setPriceDirection(null);
+        setShowResultStamp(false);
+        setUserWon(null);
+        setCurrentPrice(3500 + Math.floor(Math.random() * 100));
+        setGameState("betting");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, roundNumber]);
 
   // 스와이프 방향 추적
   useMotionValueEvent(x, "change", (latest) => {
@@ -154,166 +181,226 @@ export default function GamePage() {
     }
   });
 
-  // TradingView 위젯 로드 - 컴포넌트 마운트 시 즉시 로드 시작
-  useEffect(() => {
-    if (
-      gameState === "loading" &&
-      tradingViewRef.current &&
-      !tradingViewLoaded
-    ) {
-      const refCurrent = tradingViewRef.current;
+  // Monad 테스트넷 설정
+  const MONAD_TESTNET = {
+    chainId: "0x279f", // 10143 in hex (CORRECT!)
+    chainName: "Monad Testnet",
+    nativeCurrency: {
+      name: "Monad",
+      symbol: "MON",
+      decimals: 18,
+    },
+    rpcUrls: [
+      "https://rpc.ankr.com/monad_testnet",  // Ankr RPC (primary)
+      "https://rpc-testnet.monadinfra.com",  // Monad Foundation RPC (fallback)
+      "https://testnet-rpc.monad.xyz"        // Official RPC (fallback)
+    ],
+    blockExplorerUrls: ["https://explorer.testnet.monad.xyz"],
+  };
 
-      // 기존 내용 제거
-      refCurrent.innerHTML = "";
+  // 네트워크 전환/추가
+  const switchToMonadTestnet = async () => {
+    if (typeof window.ethereum === "undefined") {
+      return false;
+    }
 
-      // widgetContainer 생성
-      const widgetContainer = document.createElement("div");
-      widgetContainer.className = "tradingview-widget-container__widget";
-      widgetContainer.style.height = "100%";
-      widgetContainer.style.width = "100%";
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: MONAD_TESTNET.chainId }],
+      });
+      return true;
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [MONAD_TESTNET],
+          });
+          return true;
+        } catch (addError) {
+          console.error("❌ Failed to add Monad Testnet:", addError);
+          return false;
+        }
+      }
+      console.error("❌ Failed to switch to Monad Testnet:", switchError);
+      return false;
+    }
+  };
 
-      // 스크립트 생성
-      const script = document.createElement("script");
-      script.src =
-        "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
-      script.type = "text/javascript";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        symbol: chain.tradingViewSymbol,
-        chartOnly: false,
-        dateRange: "1D",
-        noTimeScale: false,
-        colorTheme: "dark",
-        isTransparent: true,
-        locale: "kr",
-        width: "100%",
-        autosize: true,
-        height: "100%",
+  // 지갑 연결
+  const connectWallet = async () => {
+    if (typeof window.ethereum === "undefined") {
+      alert("MetaMask를 설치해주세요!");
+      return;
+    }
+
+    try {
+      // 1. 계정 연결 요청
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
       });
 
-      script.onload = () => {
-        setTimeout(() => {
-          setTradingViewLoaded(true);
-        }, 500);
-      };
-      script.onerror = () => {
-        setTradingViewLoaded(true);
-      };
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
 
-      // 중요: widgetContainer를 먼저 추가하고, 그 다음 스크립트를 컨테이너에 직접 추가
-      refCurrent.appendChild(widgetContainer);
-      refCurrent.appendChild(script); // widgetContainer가 아닌 refCurrent에 추가
+      // 2. Monad 테스트넷으로 전환
+      const switched = await switchToMonadTestnet();
+      if (!switched) {
+        alert("Monad 테스트넷으로 전환해주세요!");
+        return;
+      }
 
-      const timeout = setTimeout(() => {
-        setTradingViewLoaded(true);
-      }, 3000);
+      // 3. Provider 및 컨트랙트 연결
+      const browserProvider = new BrowserProvider(window.ethereum);
+      const signer = await browserProvider.getSigner();
+      const address = await signer.getAddress();
 
-      return () => {
-        clearTimeout(timeout);
-        if (refCurrent && widgetContainer.parentNode === refCurrent) {
-          refCurrent.removeChild(widgetContainer);
-        }
-        if (refCurrent && script.parentNode === refCurrent) {
-          refCurrent.removeChild(script);
-        }
-      };
+      setProvider(browserProvider);
+      setWalletAddress(address);
+
+      // TODO: 스마트 컨트랙트 연결
+      // const contractAddress = "0xd7DB3033F906771c37d54548267b61481e6CfbE9";
+      // const contractABI = [...]; // ABI 필요
+      // const gameContract = new Contract(contractAddress, contractABI, signer);
+      // setContract(gameContract);
+
+      console.log("✅ Wallet connected:", address);
+      console.log("✅ Network: Monad Testnet");
+      console.log("⚠️  Note: Balance check is disabled due to RPC limitations");
+    } catch (error: any) {
+      console.error("❌ Wallet connection failed:", error);
+      alert(`지갑 연결 실패: ${error.message || "알 수 없는 오류"}`);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, chain.tradingViewSymbol]);
+  };
 
-  // 차트 로드 완료 시 카운트다운 시작
+  // WebSocket 연결
   useEffect(() => {
-    if (gameState === "loading" && tradingViewLoaded) {
-      // 차트가 로드 완료되면 즉시 betting 상태로 전환
-      setGameState("betting");
-    }
-  }, [gameState, tradingViewLoaded]);
+    const newSocket = io("http://localhost:3001");
 
-  // 차트 로딩 타임아웃 - 최대 5초 후에도 로드되지 않으면 강제로 시작
-  useEffect(() => {
-    if (gameState === "loading") {
-      const timer = setTimeout(() => {
-        // 타임아웃 시 차트 로드 완료로 표시하고 betting 상태로 전환
-        setTradingViewLoaded(true);
+    newSocket.on("connect", () => {
+      console.log("✅ WebSocket connected");
+    });
+
+    newSocket.on("round-start", (data) => {
+      console.log("📢 Round Start:", data);
+      const currentRound = data.roundNumber;
+
+      setRoundNumber(currentRound);
+      setCurrentPrice(data.basePrice);
+      setPreviousPrice(data.basePrice);
+      setBettingCountdown(BETTING_TIME);
+      setUserBet(null);
+      setPriceDirection(null);
+      setShowResultStamp(false);
+      setUserWon(null);
+      setEliminatedThisRound([]);
+
+      // 6라운드 완료 후 게임 종료
+      if (currentRound > MAX_ROUNDS) {
+        setGameState("finalWinner");
+      } else {
         setGameState("betting");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [gameState]);
+      }
+    });
 
-  // betting 상태로 전환될 때 차트가 반드시 로드되어 있도록 보장
-  useEffect(() => {
-    if (
-      gameState === "betting" &&
-      !tradingViewLoaded &&
-      tradingViewRef.current
-    ) {
-      // betting 상태인데 차트가 로드되지 않았다면 즉시 로드 시작
-      const refCurrent = tradingViewRef.current;
+    newSocket.on("round-end", (data) => {
+      console.log("📢 Round End:", data);
 
-      // 기존 내용 제거
-      refCurrent.innerHTML = "";
+      setPriceDirection(data.correctAnswer ? "up" : "down");
+      setPreviousPrice(data.previousPrice);
+      setEndPrice(data.currentPrice);
+      setShowResultStamp(true);
 
-      const widgetContainer = document.createElement("div");
-      widgetContainer.className = "tradingview-widget-container__widget";
-      widgetContainer.style.height = "100%";
-      widgetContainer.style.width = "100%";
+      // 사용자 승패 확인
+      if (userBet !== null) {
+        const won = (userBet === "up" && data.correctAnswer) ||
+                     (userBet === "down" && !data.correctAnswer);
+        setUserWon(won);
+      } else {
+        // 베팅하지 않으면 자동 패배
+        setUserWon(false);
+      }
 
-      const script = document.createElement("script");
-      script.src =
-        "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
-      script.type = "text/javascript";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        symbol: chain.tradingViewSymbol,
-        chartOnly: false,
-        dateRange: "1D",
-        noTimeScale: false,
-        colorTheme: "dark",
-        isTransparent: true,
-        locale: "kr",
-        width: "100%",
-        autosize: true,
-        height: "100%",
-      });
+      // Mock elimination logic: eliminate 1 player per round
+      const winningDirection = data.correctAnswer ? "up" : "down";
+      const currentActivePlayers = activePlayers.filter(p => !p.isEliminated);
 
-      script.onload = () => {
+      // Randomly assign bets to mock players
+      const playersWithBets = currentActivePlayers.map(player => ({
+        ...player,
+        bet: Math.random() > 0.5 ? "up" : "down" as "up" | "down"
+      }));
+
+      // Find losers (wrong bets)
+      const losers = playersWithBets.filter(p => p.bet !== winningDirection);
+
+      let eliminatedPlayer: Player | null = null;
+
+      if (losers.length > 0) {
+        // Randomly eliminate one loser
+        const randomLoserIndex = Math.floor(Math.random() * losers.length);
+        eliminatedPlayer = losers[randomLoserIndex];
+      } else if (currentActivePlayers.length > 1) {
+        // If everyone bet correctly, randomly eliminate one player
+        const randomIndex = Math.floor(Math.random() * currentActivePlayers.length);
+        eliminatedPlayer = currentActivePlayers[randomIndex];
+      }
+
+      if (eliminatedPlayer) {
+        const updatedPlayers = players.map(p =>
+          p.address === eliminatedPlayer!.address
+            ? { ...p, isEliminated: true }
+            : p
+        );
+        setPlayers(updatedPlayers);
+
+        const newActivePlayers = currentActivePlayers.filter(
+          p => p.address !== eliminatedPlayer!.address
+        );
+        setActivePlayers(newActivePlayers);
+        setEliminatedThisRound([eliminatedPlayer]);
+      }
+
+      // 6라운드 완료 확인 또는 1명 남았을 때
+      if (roundNumber >= MAX_ROUNDS || currentActivePlayers.length <= 1) {
         setTimeout(() => {
-          setTradingViewLoaded(true);
-        }, 500);
-      };
-      script.onerror = () => {
-        setTradingViewLoaded(true);
-      };
+          setGameState("finalWinner");
+        }, 3000);
+      } else {
+        setGameState("result");
+      }
+    });
 
-      refCurrent.appendChild(widgetContainer);
-      widgetContainer.appendChild(script);
+    newSocket.on("price-update", (data) => {
+      if (data.chainType === "ETH") {
+        setCurrentPrice(data.price);
+      }
+    });
 
-      const timeout = setTimeout(() => {
-        setTradingViewLoaded(true);
-      }, 3000);
+    newSocket.on("player-update", (data) => {
+      console.log("📢 Player Update:", data);
+      // TODO: 플레이어 목록 업데이트 로직
+    });
 
-      return () => {
-        clearTimeout(timeout);
-        if (refCurrent && widgetContainer.parentNode === refCurrent) {
-          refCurrent.removeChild(widgetContainer);
-        }
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, tradingViewLoaded]);
+    newSocket.on("disconnect", () => {
+      console.log("❌ WebSocket disconnected");
+    });
 
-  // 베팅 화면 시작 시 모든 플레이어가 자동으로 "up" 선택 (mockdata)
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [roundNumber, userBet]);
+
+  // 컴포넌트 마운트 시 지갑 자동 연결 시도
   useEffect(() => {
-    if (gameState === "betting" && bettingCountdown === BETTING_TIME) {
-      // 모든 활성 플레이어가 자동으로 "up" 선택
-      setActivePlayers((prev) =>
-        prev.map((p) => ({ ...p, bet: "up" as const }))
-      );
-    }
-  }, [gameState, bettingCountdown]);
+    connectWallet();
+  }, []);
 
-  // 베팅 카운트다운
+  // 베팅 카운트다운 (실제 WebSocket 기반)
   useEffect(() => {
     if (gameState === "betting" && bettingCountdown > 0) {
       const timer = setTimeout(() => {
@@ -321,90 +408,96 @@ export default function GamePage() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (gameState === "betting" && bettingCountdown === 0) {
-      // 5초 후 가격 방향 결정 (모든 플레이어가 up을 선택하므로 up으로 설정)
-      setTimeout(() => {
-        const direction = "up"; // 모든 플레이어가 up을 선택하므로 항상 up
-        setPriceDirection(direction);
+      // Trigger mock round-end when countdown reaches 0
+      const timer = setTimeout(() => {
+        const randomDirection = Math.random() > 0.5;
+        const newPrice = currentPrice + (randomDirection ? 50 : -50);
 
-        // 가격 계산 (시뮬레이션)
-        const change = direction === "up" ? 0.02 : -0.02;
-        setEndPrice(currentPrice * (1 + change));
-
-        // 탈락자 처리
-        const eliminated: Player[] = [];
-        const remaining: Player[] = [];
-
-        activePlayers.forEach((player) => {
-          if (!player.bet || player.bet !== direction) {
-            eliminated.push({ ...player, isEliminated: true });
-          } else {
-            remaining.push(player);
-          }
-        });
-
-        // 사용자 승리/패배 확인
-        const userPlayer = activePlayers[0];
-        const userWonResult = userPlayer?.bet === direction;
-        setUserWon(userWonResult);
-
-        setEliminatedThisRound(eliminated);
-        setActivePlayers(remaining);
-        setPlayers((prev) =>
-          prev.map((p) => {
-            const found = remaining.find((r) => r.id === p.id);
-            return found ? found : { ...p, isEliminated: true };
-          })
-        );
-        setGameState("result");
+        setPriceDirection(randomDirection ? "up" : "down");
+        setPreviousPrice(currentPrice);
+        setEndPrice(newPrice);
         setShowResultStamp(true);
-      }, 0);
-    }
-  }, [gameState, bettingCountdown, activePlayers, currentPrice]);
 
-  // 결과 화면 후 남은 인원 체크
+        // Check user win/loss
+        if (userBet !== null) {
+          const won = (userBet === "up" && randomDirection) || (userBet === "down" && !randomDirection);
+          setUserWon(won);
+        } else {
+          setUserWon(false);
+        }
+
+        // Mock elimination logic
+        const winningDirection = randomDirection ? "up" : "down";
+        const currentActivePlayers = activePlayers.filter(p => !p.isEliminated);
+
+        // Randomly assign bets to mock players
+        const playersWithBets = currentActivePlayers.map(player => ({
+          ...player,
+          bet: Math.random() > 0.5 ? "up" : "down" as "up" | "down"
+        }));
+
+        // Find losers (wrong bets)
+        const losers = playersWithBets.filter(p => p.bet !== winningDirection);
+
+        let eliminatedPlayer: Player | null = null;
+
+        if (losers.length > 0) {
+          // Randomly eliminate one loser
+          const randomLoserIndex = Math.floor(Math.random() * losers.length);
+          eliminatedPlayer = losers[randomLoserIndex];
+        } else if (currentActivePlayers.length > 1) {
+          // If everyone bet correctly, randomly eliminate one player
+          const randomIndex = Math.floor(Math.random() * currentActivePlayers.length);
+          eliminatedPlayer = currentActivePlayers[randomIndex];
+        }
+
+        if (eliminatedPlayer) {
+          const updatedPlayers = players.map(p =>
+            p.address === eliminatedPlayer!.address
+              ? { ...p, isEliminated: true }
+              : p
+          );
+          setPlayers(updatedPlayers);
+
+          const newActivePlayers = currentActivePlayers.filter(
+            p => p.address !== eliminatedPlayer!.address
+          );
+          setActivePlayers(newActivePlayers);
+          setEliminatedThisRound([eliminatedPlayer]);
+
+          // Check if game should end
+          if (roundNumber >= MAX_ROUNDS || newActivePlayers.length <= 1) {
+            setTimeout(() => {
+              setGameState("finalWinner");
+            }, 3000);
+          } else {
+            setGameState("result");
+          }
+        } else {
+          // No elimination needed
+          if (roundNumber >= MAX_ROUNDS) {
+            setTimeout(() => {
+              setGameState("finalWinner");
+            }, 3000);
+          } else {
+            setGameState("result");
+          }
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, bettingCountdown, currentPrice, userBet, activePlayers, players, roundNumber]);
+
+  // 결과 화면 표시 타이머
   useEffect(() => {
     if (gameState === "result") {
       const timer = setTimeout(() => {
-        // 1명 남으면 최종 승자
-        if (activePlayers.length === 1) {
-          const totalPotAmount = initialPlayers.length * BET_AMOUNT;
-          setTotalPot(totalPotAmount);
-          setGameState("finalWinner");
-        } else if (activePlayers.length > 1) {
-          // 2명 이상 남으면 탈락 표시 후 다음 라운드
-          setGameState("elimination");
-        } else {
-          // 모두 탈락 (예외 처리)
-          setGameState("finalWinner");
-        }
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [gameState, activePlayers.length]);
-
-  // 탈락 표시 후 다음 라운드
-  useEffect(() => {
-    if (gameState === "elimination") {
-      const timer = setTimeout(() => {
-        // 다음 라운드를 위한 가격 업데이트 (이전 라운드의 결정 가격이 새로운 시작 가격)
-        if (endPrice !== null) {
-          setCurrentPrice(endPrice);
-        }
-
-        setRoundNumber(roundNumber + 1);
-        setBettingCountdown(BETTING_TIME);
-        setUserBet(null);
-        setPriceDirection(null);
-        setEndPrice(null);
-        setEliminatedThisRound([]);
-        setShowResultStamp(false);
-        setUserWon(null);
-        setActivePlayers((prev) => prev.map((p) => ({ ...p, bet: null })));
-        setGameState("betting");
+        // 결과 화면 2초 후 다음 라운드로 (WebSocket이 처리)
+        // round-start 이벤트를 기다림
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [gameState, roundNumber, endPrice]);
+  }, [gameState]);
 
   const handleDragEnd = () => {
     const xValue = x.get();
@@ -425,10 +518,8 @@ export default function GamePage() {
     setUserBet(prediction);
     setIsReturning(true);
 
-    // 사용자 베팅 반영
-    setActivePlayers((prev) =>
-      prev.map((p, idx) => (idx === 0 ? { ...p, bet: prediction } : p))
-    );
+    // TODO: 스마트 컨트랙트에 베팅 제출
+    console.log(`🎯 Bet placed: ${prediction === "up" ? "UP" : "DOWN"}`);
 
     // 카드를 제자리로 복귀
     setTimeout(() => {
@@ -443,31 +534,29 @@ export default function GamePage() {
 
   const getPlayerAvatarColor = (index: number) => {
     const colors = [
-      "from-blue-500 to-blue-600",
-      "from-purple-500 to-purple-600",
-      "from-green-500 to-green-600",
-      "from-yellow-500 to-yellow-600",
-      "from-red-500 to-red-600",
-      "from-indigo-500 to-indigo-600",
+      "bg-[#85E6FF]",
+      "bg-[#B9E3F9]",
+      "bg-[#FF8EE4]",
+      "bg-[#FFAE45]",
     ];
     return colors[index % colors.length];
   };
 
   const getPlayerClassName = (player: Player, index: number) => {
     if (player.isEliminated) {
-      return "h-12 w-12 rounded-full bg-linear-to-r from-gray-600 to-gray-700 opacity-50 flex items-center justify-center text-white font-bold text-sm shadow-lg relative";
+      return "h-12 w-12 rounded-full bg-gray-600 opacity-50 flex items-center justify-center text-white font-bold text-sm shadow-lg relative";
     }
-    const baseColor = `bg-linear-to-r ${getPlayerAvatarColor(index)}`;
+    const baseColor = getPlayerAvatarColor(index);
     return `h-12 w-12 rounded-full ${baseColor} flex items-center justify-center text-white font-bold text-sm shadow-lg relative`;
   };
 
   const totalDeposit = players.reduce(
-    (sum, p) => sum + (p.isEliminated ? 0 : p.deposit),
+    (sum, p) => sum + (p.isEliminated ? 0 : (p.deposit || 0)),
     0
   );
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-900 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#0E091C] via-[#6E54FF]/20 to-[#000000] flex flex-col items-center justify-center p-4">
       {/* Tinder 스타일 메인 카드 */}
       <div className="w-full max-w-md relative">
         {/* 스와이프 안내 - 카드 바깥 왼쪽/오른쪽 */}
@@ -485,7 +574,7 @@ export default function GamePage() {
               }}
               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full pr-4 z-10"
             >
-              <div className="flex flex-col items-center gap-2 text-slate-500 opacity-50">
+              <div className="flex flex-col items-center gap-2 text-[#DDD7FE]/60 opacity-50">
                 <TrendingDown className="h-6 w-6" />
                 <span className="text-xs font-medium whitespace-nowrap">
                   slide to down
@@ -505,7 +594,7 @@ export default function GamePage() {
               }}
               className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full pl-4 z-10"
             >
-              <div className="flex flex-col items-center gap-2 text-slate-500 opacity-50">
+              <div className="flex flex-col items-center gap-2 text-[#DDD7FE]/60 opacity-50">
                 <TrendingUp className="h-6 w-6" />
                 <span className="text-xs font-medium whitespace-nowrap">
                   slide to up
@@ -528,7 +617,7 @@ export default function GamePage() {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"
+                className="w-16 h-16 border-4 border-[#6E54FF] border-t-transparent rounded-full mx-auto mb-4"
               />
               <p className="text-white text-xl font-semibold">
                 준비중입니다...
@@ -590,6 +679,17 @@ export default function GamePage() {
                   </>
                 )}
 
+                {/* Logo */}
+                <div className="flex items-center justify-center mb-3 relative z-10">
+                  <Image
+                    src="/logo.png"
+                    alt="Mon Blitz Logo"
+                    width={200}
+                    height={60}
+                    className="h-10 w-auto"
+                  />
+                </div>
+
                 {/* 헤더 정보 */}
                 <div className="flex items-center justify-between mb-4 relative z-10">
                   <div className="flex items-center gap-3">
@@ -599,15 +699,34 @@ export default function GamePage() {
                       {chain.symbol[0]}
                     </div>
                     <div>
-                      <p className="text-slate-400 text-xs font-medium">체인</p>
+                      <p className="text-[#DDD7FE]/80 text-xs font-medium">체인</p>
                       <p className="text-white font-bold">{chain.name}</p>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-slate-400 text-xs font-medium">라운드</p>
-                    <p className="text-white font-bold">{roundNumber}</p>
+                    {walletAddress ? (
+                      <>
+                        <p className="text-[#DDD7FE]/80 text-xs font-medium">지갑</p>
+                        <p className="text-white font-bold text-xs">
+                          {walletAddress.substring(0, 6)}...{walletAddress.substring(38)}
+                        </p>
+                      </>
+                    ) : (
+                      <button
+                        onClick={connectWallet}
+                        className="bg-[#6E54FF] hover:bg-[#6E54FF]/80 text-white px-3 py-1 rounded-lg text-xs font-bold"
+                      >
+                        지갑 연결
+                      </button>
+                    )}
                   </div>
+                </div>
+
+                {/* 라운드 번호 */}
+                <div className="text-center mb-2 relative z-10">
+                  <p className="text-[#DDD7FE]/80 text-xs font-medium">라운드</p>
+                  <p className="text-white font-bold text-lg">{roundNumber}</p>
                 </div>
 
                 {/* 카운트다운 */}
@@ -620,100 +739,54 @@ export default function GamePage() {
                   >
                     {bettingCountdown}
                   </motion.div>
-                  <p className="text-slate-300 text-sm font-semibold">
+                  <p className="text-[#DDD7FE] text-sm font-semibold">
                     베팅 시간
                   </p>
                 </div>
 
-                {/* 차트 */}
-                <div className="bg-white/5 rounded-2xl p-3 h-48 mb-4 relative z-10">
-                  <div
-                    ref={tradingViewRef}
-                    className="h-full w-full tradingview-widget-container"
+                {/* 차트 영역 - TradingView 위젯 */}
+                <div className="bg-white/5 rounded-2xl overflow-hidden h-48 mb-4 relative z-10">
+                  <TradingViewWidget
+                    symbol={chain.tradingViewSymbol}
+                    theme="dark"
+                    interval="1"
+                    timezone="Etc/UTC"
+                    style="1"
+                    locale="en"
+                    toolbar_bg="#0E091C"
+                    enable_publishing={false}
+                    hide_side_toolbar={false}
+                    allow_symbol_change={false}
+                    container_id="tradingview_widget"
+                    autosize
                   />
-                  {/* betting 상태에서는 로딩 표시하지 않음 - 차트가 반드시 표시되어야 함 */}
-                  {!tradingViewLoaded && gameState !== "betting" && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{
-                            duration: 1,
-                            repeat: Infinity,
-                            ease: "linear",
-                          }}
-                          className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-2"
-                        />
-                        <div className="text-slate-400 text-xs font-medium">
-                          차트 로딩 중...
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* 가격 정보 */}
                 <div className="text-center mb-4 relative z-10">
-                  <h2 className="text-2xl font-bold bg-linear-to-r from-white to-slate-300 bg-clip-text text-transparent mb-1">
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-[#DDD7FE] bg-clip-text text-transparent mb-1">
                     {chain.name}
                   </h2>
-                  <p className="text-slate-400 text-sm mb-3">{chain.symbol}</p>
+                  <p className="text-[#DDD7FE]/80 text-sm mb-3">{chain.symbol}</p>
                   <div className="text-4xl font-bold text-white mb-2">
                     ${currentPrice.toLocaleString()}
                   </div>
                 </div>
 
-                {/* 참가자 정보 */}
+                {/* 참가자 정보 - 간소화 */}
                 <div className="relative z-10 mb-2">
-                  <p className="text-slate-400 text-xs mb-2 text-center font-medium">
-                    참가자 ({activePlayers.length}명)
-                  </p>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    {players.map((player, index) => {
-                      const isActive = activePlayers.find(
-                        (p) => p.id === player.id
-                      );
-                      if (!isActive && player.isEliminated) return null;
-
-                      return (
-                        <div key={player.id} className="relative">
-                          <div className={getPlayerClassName(player, index)}>
-                            {player.avatar}
-                            {isActive && isActive.bet && (
-                              <div
-                                className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full flex items-center justify-center ${
-                                  isActive.bet === "up"
-                                    ? "bg-green-500"
-                                    : "bg-red-500"
-                                }`}
-                              >
-                                {isActive.bet === "up" ? (
-                                  <TrendingUp className="h-2 w-2 text-white" />
-                                ) : (
-                                  <TrendingDown className="h-2 w-2 text-white" />
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 상금 정보 */}
-                <div className="mt-4 text-center relative z-10">
-                  <div className="flex items-center justify-center gap-2">
-                    <Zap className="h-4 w-4 text-yellow-400" />
-                    <p className="text-slate-400 text-xs font-medium">
-                      총 상금
+                  <div className="bg-white/5 rounded-xl p-3 text-center">
+                    <p className="text-[#DDD7FE]/80 text-xs font-medium mb-1">
+                      남은 플레이어
                     </p>
-                    <p className="text-white font-bold">
-                      $
-                      {totalPot > 0
-                        ? totalPot.toLocaleString()
-                        : totalDeposit.toLocaleString()}
+                    <p className="text-white font-bold text-2xl">
+                      {activePlayers.length}명
                     </p>
+                    {walletAddress && (
+                      <p className="text-green-400 text-xs mt-1">
+                        ✓ 참가중
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -729,7 +802,7 @@ export default function GamePage() {
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
-                      className="flex items-center justify-center gap-3 text-slate-500 opacity-60"
+                      className="flex items-center justify-center gap-3 text-[#DDD7FE]/60 opacity-60"
                     >
                       <TrendingDown className="h-5 w-5" />
                       <span className="text-sm font-medium">
@@ -848,7 +921,7 @@ export default function GamePage() {
               <div className="bg-white/5 rounded-2xl p-6 mb-6 relative z-10">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 text-left">
-                    <p className="text-slate-400 text-xs mb-2 font-medium">
+                    <p className="text-[#DDD7FE]/80 text-xs mb-2 font-medium">
                       시작 가격
                     </p>
                     <p className="text-2xl font-bold text-white">
@@ -865,7 +938,7 @@ export default function GamePage() {
                   </div>
 
                   <div className="flex-1 text-right">
-                    <p className="text-slate-400 text-xs mb-2 font-medium">
+                    <p className="text-[#DDD7FE]/80 text-xs mb-2 font-medium">
                       결정 가격
                     </p>
                     <p
@@ -889,7 +962,7 @@ export default function GamePage() {
                   transition={{ delay: 0.5 }}
                   className="relative z-10 mb-4"
                 >
-                  <p className="text-slate-400 text-xs mb-2 text-center font-medium">
+                  <p className="text-[#DDD7FE]/80 text-xs mb-2 text-center font-medium">
                     참가자 ({activePlayers.length}명)
                   </p>
                   <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -934,7 +1007,7 @@ export default function GamePage() {
                   transition={{ delay: 0.7 }}
                   className="mt-auto relative z-10"
                 >
-                  <p className="text-slate-400 text-xs mb-3 text-center font-medium">
+                  <p className="text-[#DDD7FE]/80 text-xs mb-3 text-center font-medium">
                     참가자 결과 ({players.length}명)
                   </p>
                   <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -1006,10 +1079,10 @@ export default function GamePage() {
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl text-center h-[90vh] flex flex-col"
             >
-              <h2 className="text-3xl font-bold bg-linear-to-r from-white to-slate-300 bg-clip-text text-transparent mb-4">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-[#DDD7FE] bg-clip-text text-transparent mb-4">
                 라운드 {roundNumber - 1} 종료
               </h2>
-              <p className="text-slate-300 mb-6 text-lg font-medium">
+              <p className="text-[#DDD7FE] mb-6 text-lg font-medium">
                 {activePlayers.length}명이 다음 라운드로 진출합니다
               </p>
 
@@ -1044,10 +1117,10 @@ export default function GamePage() {
                 transition={{ delay: 1 }}
                 className="mt-auto text-center bg-white/5 rounded-2xl p-4"
               >
-                <p className="text-slate-300 text-base mb-1 font-semibold">
+                <p className="text-[#DDD7FE] text-base mb-1 font-semibold">
                   다음 라운드 준비 중...
                 </p>
-                <p className="text-slate-400 text-xs">
+                <p className="text-[#DDD7FE]/80 text-xs">
                   라운드 {roundNumber} 시작
                 </p>
               </motion.div>
@@ -1078,7 +1151,7 @@ export default function GamePage() {
                   />
                 </motion.div>
 
-                <h2 className="text-4xl font-bold bg-linear-to-r from-yellow-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent mb-6">
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent mb-6">
                   최종 승자!
                 </h2>
 
@@ -1089,7 +1162,7 @@ export default function GamePage() {
                       scale: [1, 1.2, 1],
                     }}
                     transition={{ duration: 1, repeat: Infinity }}
-                    className={`w-32 h-32 rounded-3xl bg-linear-to-r ${getPlayerAvatarColor(
+                    className={`w-32 h-32 rounded-3xl ${getPlayerAvatarColor(
                       0
                     )} mx-auto mb-6 flex items-center justify-center text-white text-2xl font-bold shadow-2xl`}
                   >
@@ -1104,7 +1177,7 @@ export default function GamePage() {
                     scale: [1, 1.1, 1],
                   }}
                   transition={{ duration: 1, repeat: Infinity }}
-                  className="text-6xl font-bold bg-linear-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
+                  className="text-6xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
                 >
                   +${totalPot.toLocaleString()}
                 </motion.div>
@@ -1135,7 +1208,7 @@ export default function GamePage() {
 
               {/* 플레이어 아이콘 - 버튼 바로 위에 표시 */}
               <div className="mt-auto relative z-10 mb-10">
-                <p className="text-slate-400 text-xs mb-3 text-center font-medium">
+                <p className="text-[#DDD7FE]/80 text-xs mb-3 text-center font-medium">
                   참가자 결과 ({players.length}명)
                 </p>
                 <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -1198,7 +1271,7 @@ export default function GamePage() {
 
               <button
                 onClick={handleBackToRooms}
-                className="bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-2xl font-bold text-base transition-all shadow-2xl shadow-blue-500/30 hover:shadow-blue-500/40 hover:scale-105"
+                className="bg-[#B9E3F9]/20 hover:bg-[#B9E3F9]/30 border border-[#B9E3F9]/30 hover:border-[#B9E3F9]/50 text-white px-8 py-4 rounded-2xl font-bold text-base transition-all shadow-lg hover:scale-105"
               >
                 방 목록으로 돌아가기
               </button>
